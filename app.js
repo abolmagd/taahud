@@ -89,15 +89,34 @@
       event.preventDefault();
       submitBtn.disabled = true;
 
+      const pagesRaw = document.getElementById("pages").value;
+      const pagesValue = Number(pagesRaw);
+      const methodValue = document.getElementById("method").value;
+      const satisfactionValue = document.getElementById("satisfaction").value;
+
+      if (
+        !studentSelect.value ||
+        !listenerSelect.value ||
+        !pagesRaw ||
+        !Number.isFinite(pagesValue) ||
+        pagesValue < 0 ||
+        !methodValue ||
+        !satisfactionValue
+      ) {
+        submitBtn.disabled = false;
+        showToast("من فضلك املأ كل الحقول المطلوبة", "error");
+        return;
+      }
+
       const listenerSelection = readListenerSelection(listenerSelect.value);
       const payload = {
         student_id: studentSelect.value,
         listener_type: listenerSelection.listenerType,
         listener_student_id: listenerSelection.listenerStudentId,
-        pages: Number(document.getElementById("pages").value),
+        pages: pagesValue,
         surah_range: document.getElementById("surah-range").value || null,
-        method: document.getElementById("method").value,
-        satisfaction: document.getElementById("satisfaction").value,
+        method: methodValue,
+        satisfaction: satisfactionValue,
         notes: document.getElementById("notes").value || null,
         points_awarded: window.TaahudPoints.computeSessionPoints({
           listenerType: listenerSelection.listenerType,
