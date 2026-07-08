@@ -1,34 +1,36 @@
 /* ═══════════════════════════════════════════════════════════════
    تعاهُد — shared design tokens and base components
-   Brand identity: warm ivory/off-white with a bronze-gold accent
-   family (from the تعاهُد mark's open-Quran gold) — no green/teal.
-   Light theme is the primary/default identity; a dark variant is
-   provided for prefers-color-scheme.
+   Brand identity: neutral off-white/ivory surface, near-black
+   charcoal text, single warm-gold accent for interactive/emphasis
+   elements (matches the تعاهُد mark's gold, used sparingly — no
+   green/teal and no brown wash across text). Light theme is the
+   primary/default identity; a dark variant is provided for
+   prefers-color-scheme.
    ═══════════════════════════════════════════════════════════════ */
 
 @import url("https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap");
 
 :root {
-  --bg: #faf6ec;
-  --surface: #fffdf7;
-  --surface-soft: #f2e9d3;
-  --surface-strong: #e8dbb8;
-  --text: #2e2410;
-  --muted: #756642;
-  --line: #e3d6b0;
-  --brand: #6b4a1c;
-  --brand-strong: #4a3110;
-  --accent: #b8863a;
-  --accent-strong: #8c6423;
-  --on-accent: #241a08;
-  --success: #5b7c4b;
+  --bg: #faf7f0;
+  --surface: #ffffff;
+  --surface-soft: #f3efe4;
+  --surface-strong: #e9e2d0;
+  --text: #1c1917;
+  --muted: #6b655a;
+  --line: #ddd6c7;
+  --brand: #1c1917;
+  --brand-strong: #000000;
+  --accent: #a16207;
+  --accent-strong: #7c4d05;
+  --on-accent: #ffffff;
+  --success: #3f7d4a;
   --danger: #a73434;
   --warning: #9b650e;
   --radius-lg: 18px;
   --radius-md: 12px;
   --radius-sm: 9px;
-  --shadow: 0 20px 50px rgba(107, 74, 28, 0.14);
-  --focus-ring: 0 0 0 3px rgba(184, 134, 58, 0.45);
+  --shadow: 0 20px 50px rgba(28, 25, 23, 0.1);
+  --focus-ring: 0 0 0 3px rgba(161, 98, 7, 0.45);
   --font-heading: "Noto Naskh Arabic", "Noto Sans Arabic", ui-sans-serif, system-ui, serif;
   --font-sans: "Noto Sans Arabic", "Noto Naskh Arabic", ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -36,23 +38,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a140a;
-    --surface: #241c0f;
-    --surface-soft: #2e2412;
-    --surface-strong: #3a2e18;
-    --text: #f5eedd;
-    --muted: #b8a67e;
-    --line: #4a3c22;
-    --brand: #e0b567;
-    --brand-strong: #f0cf8f;
-    --accent: #d9a957;
-    --accent-strong: #f0c87a;
-    --on-accent: #22160a;
-    --success: #8fbf7a;
+    --bg: #14120f;
+    --surface: #1e1b17;
+    --surface-soft: #262220;
+    --surface-strong: #322c26;
+    --text: #f2ede2;
+    --muted: #b3a996;
+    --line: #3d362d;
+    --brand: #f2ede2;
+    --brand-strong: #ffffff;
+    --accent: #d9a53f;
+    --accent-strong: #eec06a;
+    --on-accent: #201804;
+    --success: #7fb583;
     --danger: #e8767a;
     --warning: #e0a83e;
     --shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-    --focus-ring: 0 0 0 3px rgba(217, 169, 87, 0.5);
+    --focus-ring: 0 0 0 3px rgba(217, 165, 63, 0.5);
   }
 }
 
@@ -100,6 +102,18 @@ body {
   font-weight: 800;
   font-size: 2.1rem;
   margin: 0 0 4px;
+}
+
+.app-logo {
+  display: block;
+  height: 72px;
+  width: auto;
+  margin: 0 auto 8px;
+}
+
+.app-logo-sm {
+  height: 40px;
+  margin: 0;
 }
 
 .muted {

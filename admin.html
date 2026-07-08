@@ -9,6 +9,7 @@
 <body>
   <div class="page" id="login-view">
     <div class="card login-screen">
+      <img src="assets/logo.jpeg" alt="تعاهُد" class="app-logo" style="margin:0 auto 8px;" />
       <h1 style="text-align:center;color:var(--brand);font-family:var(--font-heading);">تعاهُد</h1>
       <p class="muted" style="text-align:center;">لوحة الأدمن</p>
       <form id="login-form" novalidate>
@@ -24,9 +25,12 @@
 
   <div class="page" id="dashboard-view" hidden>
     <header class="app-header" style="display:flex;justify-content:space-between;align-items:center;text-align:right;">
-      <div>
-        <h1 style="margin:0;">تعاهُد</h1>
-        <p class="muted" style="margin:0;">لوحة الأدمن</p>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <img src="assets/logo.jpeg" alt="تعاهُد" class="app-logo app-logo-sm" />
+        <div>
+          <h1 style="margin:0;">تعاهُد</h1>
+          <p class="muted" style="margin:0;">لوحة الأدمن</p>
+        </div>
       </div>
       <button class="btn btn-secondary" id="logout-btn">خروج</button>
     </header>
