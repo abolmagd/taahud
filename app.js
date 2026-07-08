@@ -19,14 +19,96 @@
     }, 4000);
   }
 
-  function populateSelect(select, options) {
-    select.innerHTML = "";
-    options.forEach((opt) => {
-      const el = document.createElement("option");
-      el.value = opt.value;
-      el.textContent = opt.label;
-      select.appendChild(el);
+  // Searchable "type your code" field: types over an <input>, filters
+  // `items` by code-prefix or name-substring, and shows a suggestion
+  // list plus explicit valid/invalid feedback (per the design: the
+  // student searches for their code rather than scrolling a long
+  // dropdown, and is told clearly if what they typed doesn't exist).
+  function setupCodeSearch({ inputEl, hiddenEl, suggestionsEl, feedbackEl, items }) {
+    function showFeedback(message, kind) {
+      if (!message) {
+        feedbackEl.hidden = true;
+        return;
+      }
+      feedbackEl.textContent = message;
+      feedbackEl.className = "code-search-feedback code-search-feedback-" + kind;
+      feedbackEl.hidden = false;
+    }
+
+    function hideSuggestions() {
+      suggestionsEl.hidden = true;
+      suggestionsEl.innerHTML = "";
+    }
+
+    function selectItem(item) {
+      hiddenEl.value = item.value;
+      inputEl.value = item.label;
+      hideSuggestions();
+      showFeedback("✓ " + item.label, "ok");
+    }
+
+    function renderSuggestions(matches) {
+      suggestionsEl.innerHTML = "";
+      matches.slice(0, 8).forEach((item) => {
+        const el = document.createElement("div");
+        el.className = "code-search-option";
+        el.textContent = item.label;
+        el.addEventListener("mousedown", (event) => {
+          event.preventDefault(); // keep input focus so blur fires after selection
+          selectItem(item);
+        });
+        suggestionsEl.appendChild(el);
+      });
+      suggestionsEl.hidden = matches.length === 0;
+    }
+
+    inputEl.addEventListener("input", () => {
+      hiddenEl.value = "";
+      const query = inputEl.value.trim().toLowerCase();
+      if (!query) {
+        hideSuggestions();
+        showFeedback("", "ok");
+        return;
+      }
+      const exact = items.find((item) => item.code.toLowerCase() === query);
+      if (exact) {
+        selectItem(exact);
+        return;
+      }
+      const matches = items.filter(
+        (item) => item.code.toLowerCase().startsWith(query) || item.name.toLowerCase().includes(query)
+      );
+      if (matches.length) {
+        renderSuggestions(matches);
+        showFeedback("", "ok");
+      } else {
+        hideSuggestions();
+        showFeedback("مفيش كود أو اسم بالشكل ده", "error");
+      }
     });
+
+    inputEl.addEventListener("blur", () => {
+      // Let a suggestion's mousedown run before we validate on blur.
+      setTimeout(() => {
+        hideSuggestions();
+        if (hiddenEl.value) return;
+        const query = inputEl.value.trim();
+        if (!query) {
+          showFeedback("", "ok");
+          return;
+        }
+        showFeedback("مفيش كود أو اسم بالشكل ده", "error");
+      }, 150);
+    });
+
+    return {
+      setQuickValue(value, label) {
+        hiddenEl.value = value;
+        inputEl.value = label;
+        hideSuggestions();
+        showFeedback("✓ " + label, "ok");
+      },
+    };
   }
 
   async function loadStudents(client) {
@@ -65,23 +147,43 @@
     const client = getClient();
     if (!client) return;
 
-    const studentSelect = document.getElementById("student-code");
-    const listenerSelect = document.getElementById("listener-code");
+    const studentHidden = document.getElementById("student-code");
+    const listenerHidden = document.getElementById("listener-code");
     const form = document.getElementById("checkin-form");
     const submitBtn = document.getElementById("submit-btn");
 
     const students = await loadStudents(client);
-    const studentOptions = students.map((s) => ({ value: s.id, label: s.code + " — " + s.name }));
+    const items = students.map((s) => ({ value: s.id, code: s.code, name: s.name, label: s.code + " — " + s.name }));
 
-    populateSelect(studentSelect, [{ value: "", label: "اختر..." }].concat(studentOptions));
-    populateSelect(
-      listenerSelect,
-      [
-        { value: "", label: "اختر..." },
-        { value: "__outside__", label: "شخص آخر خارج تعاهُد" },
-        { value: "__listening_only__", label: "وِرد استماع" },
-      ].concat(studentOptions)
-    );
+    setupCodeSearch({
+      inputEl: document.getElementById("student-code-input"),
+      hiddenEl: studentHidden,
+      suggestionsEl: document.getElementById("student-code-suggestions"),
+      feedbackEl: document.getElementById("student-code-feedback"),
+      items,
+    });
+
+    const listenerSearch = setupCodeSearch({
+      inputEl: document.getElementById("listener-code-input"),
+      hiddenEl: listenerHidden,
+      suggestionsEl: document.getElementById("listener-code-suggestions"),
+      feedbackEl: document.getElementById("listener-code-feedback"),
+      items,
+    });
+
+    const listenerQuickLabels = {
+      __outside__: "شخص آخر خارج تعاهُد",
+      __listening_only__: "وِرد استماع",
+    };
+    document.querySelectorAll(".code-search-quick-options .chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const value = chip.dataset.quickValue;
+        document
+          .querySelectorAll(".code-search-quick-options .chip")
+          .forEach((btn) => btn.classList.toggle("active", btn === chip));
+        listenerSearch.setQuickValue(value, listenerQuickLabels[value]);
+      });
+    });
 
     const pointValue = await loadPointValue(client);
 
@@ -95,8 +197,8 @@
       const satisfactionValue = document.getElementById("satisfaction").value;
 
       if (
-        !studentSelect.value ||
-        !listenerSelect.value ||
+        !studentHidden.value ||
+        !listenerHidden.value ||
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
         pagesValue < 0 ||
@@ -108,9 +210,9 @@
         return;
       }
 
-      const listenerSelection = readListenerSelection(listenerSelect.value);
+      const listenerSelection = readListenerSelection(listenerHidden.value);
       const payload = {
-        student_id: studentSelect.value,
+        student_id: studentHidden.value,
         listener_type: listenerSelection.listenerType,
         listener_student_id: listenerSelection.listenerStudentId,
         pages: pagesValue,
@@ -133,8 +235,19 @@
         return;
       }
 
-      showToast("تم تسجيل ورد التسميع بنجاح", "success");
+      const student = students.find((s) => s.id === payload.student_id);
+      showToast("شكراً لتسجيلك يا " + (student ? student.name : "طالبنا") + "!", "success");
       form.reset();
+      document.querySelectorAll(".code-search-feedback").forEach((el) => {
+        el.hidden = true;
+      });
+      document.querySelectorAll(".code-search-suggestions").forEach((el) => {
+        el.hidden = true;
+        el.innerHTML = "";
+      });
+      document.querySelectorAll(".code-search-quick-options .chip").forEach((btn) => {
+        btn.classList.remove("active");
+      });
     });
   }
 
