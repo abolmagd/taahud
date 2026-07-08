@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تعاهُد — تسجيل التسميع</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="app-header">
+      <h1>تعاهُد</h1>
+      <p class="muted">سجّل ما تم تسميعه أو الاستماع إليه</p>
+    </header>
+
+    <main class="card" id="checkin-card">
+      <form id="checkin-form" novalidate>
+        <div class="form-group">
+          <label for="student-code">الكود الخاص بك</label>
+          <select id="student-code" required>
+            <option value="">جارٍ التحميل...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="listener-code">كود الحافظ الذي سمعت عليه</label>
+          <select id="listener-code" required>
+            <option value="">جارٍ التحميل...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="pages">عدد الصفحات</label>
+          <input type="number" id="pages" min="0" step="0.5" required />
+        </div>
+
+        <div class="form-group">
+          <label for="surah-range">من (اختياري)</label>
+          <input type="text" id="surah-range" placeholder="مثال: النساء ٣٣ - ٥٩" />
+        </div>
+
+        <div class="form-group">
+          <label for="method">طريقة التسميع؟</label>
+          <select id="method" required>
+            <option value="">اختر...</option>
+            <option value="تليجرام">تليجرام</option>
+            <option value="واتس">واتس</option>
+            <option value="مكالمة هاتفية">مكالمة هاتفية</option>
+            <option value="جوجل ميت">جوجل ميت</option>
+            <option value="مقابلة">مقابلة</option>
+            <option value="استماع">استماع</option>
+            <option value="أخرى">أخرى</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="satisfaction">هل أنت راض عن جودة محفوظك الذي سمعته؟</label>
+          <select id="satisfaction" required>
+            <option value="">اختر...</option>
+            <option value="نعم تماما">نعم تماما</option>
+            <option value="يحتاج إلى مزيد من الضبط">يحتاج إلى مزيد من الضبط</option>
+            <option value="وردي كان ورد استماع">وردي كان ورد استماع</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">ملاحظات واقتراحات (اختياري)</label>
+          <textarea id="notes" rows="3"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">تسجيل</button>
+      </form>
+      <div id="toast" class="toast" hidden></div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="supabase-config.js" defer></script>
+  <script src="points.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>

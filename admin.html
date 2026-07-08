@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تعاهُد — لوحة الأدمن</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page" id="login-view">
+    <div class="card login-screen">
+      <h1 style="text-align:center;color:var(--accent);">تعاهُد</h1>
+      <p class="muted" style="text-align:center;">لوحة الأدمن</p>
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="admin-password">كلمة المرور</label>
+          <input type="password" id="admin-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">دخول</button>
+      </form>
+      <div id="login-toast" class="toast" hidden></div>
+    </div>
+  </div>
+
+  <div class="page" id="dashboard-view" hidden>
+    <header class="app-header" style="display:flex;justify-content:space-between;align-items:center;text-align:right;">
+      <div>
+        <h1 style="margin:0;">تعاهُد</h1>
+        <p class="muted" style="margin:0;">لوحة الأدمن</p>
+      </div>
+      <button class="btn btn-secondary" id="logout-btn">خروج</button>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="roster">الطلاب</button>
+      <button class="tab" data-tab="settings">الإعدادات</button>
+      <button class="tab" data-tab="stats">الإحصائيات</button>
+      <button class="tab" data-tab="log">سجل الجلسات</button>
+    </nav>
+
+    <section class="card" id="tab-roster">
+      <h2>الطلاب</h2>
+      <form id="add-student-form" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;">
+        <div class="form-group" style="flex:1;margin-bottom:0;">
+          <label for="new-code">الكود</label>
+          <input type="text" id="new-code" required />
+        </div>
+        <div class="form-group" style="flex:2;margin-bottom:0;">
+          <label for="new-name">الاسم</label>
+          <input type="text" id="new-name" required />
+        </div>
+        <button type="submit" class="btn btn-primary">إضافة</button>
+      </form>
+      <table class="table" id="roster-table">
+        <thead>
+          <tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th></th></tr>
+        </thead>
+        <tbody id="roster-body"></tbody>
+      </table>
+    </section>
+
+    <section class="card" id="tab-settings" hidden>
+      <h2>الإعدادات</h2>
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="point-value">عدد النقاط لكل جلسة تسميع</label>
+          <input type="number" id="point-value" min="0" step="1" required />
+        </div>
+        <button type="submit" class="btn btn-primary">حفظ</button>
+      </form>
+      <div id="settings-toast" class="toast" hidden></div>
+    </section>
+
+    <section class="card" id="tab-stats" hidden>
+      <h2>الإحصائيات</h2>
+      <nav class="tabs" id="period-tabs">
+        <button class="tab active" data-period="day">اليوم</button>
+        <button class="tab" data-period="week">الأسبوع</button>
+        <button class="tab" data-period="month">الشهر</button>
+      </nav>
+      <table class="table" id="stats-table">
+        <thead>
+          <tr>
+            <th data-col="name">الاسم</th>
+            <th data-col="sessionsRecited">جلسات التسميع</th>
+            <th data-col="pagesRecited">صفحات مسمّعة</th>
+            <th data-col="sessionsListened">جلسات الاستماع</th>
+            <th data-col="pagesListened">صفحات مستمع لها</th>
+            <th data-col="pointsEarned">النقاط</th>
+          </tr>
+        </thead>
+        <tbody id="stats-body"></tbody>
+      </table>
+    </section>
+
+    <section class="card" id="tab-log" hidden>
+      <h2>سجل الجلسات</h2>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <select id="log-filter-student"><option value="">كل الطلاب</option></select>
+        <select id="log-filter-method">
+          <option value="">كل الطرق</option>
+          <option value="تليجرام">تليجرام</option>
+          <option value="واتس">واتس</option>
+          <option value="مكالمة هاتفية">مكالمة هاتفية</option>
+          <option value="جوجل ميت">جوجل ميت</option>
+          <option value="مقابلة">مقابلة</option>
+          <option value="استماع">استماع</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+      <table class="table" id="log-table">
+        <thead>
+          <tr><th>التاريخ</th><th>الطالب</th><th>السامع</th><th>الصفحات</th><th>الطريقة</th></tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="supabase-config.js" defer></script>
+  <script src="stats.js" defer></script>
+  <script src="session-log.js" defer></script>
+  <script src="admin.js" defer></script>
+</body>
+</html>
