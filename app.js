@@ -19,114 +19,10 @@
     }, 4000);
   }
 
-  // Searchable "type your code" field: types over an <input>, filters
-  // `items` by code-prefix or name-substring, and shows a suggestion
-  // list plus explicit valid/invalid feedback (per the design: the
-  // student searches for their code rather than scrolling a long
-  // dropdown, and is told clearly if what they typed doesn't exist).
-  function setupCodeSearch({ inputEl, hiddenEl, suggestionsEl, feedbackEl, items, onClear }) {
-    function showFeedback(message, kind) {
-      if (!message) {
-        feedbackEl.hidden = true;
-        return;
-      }
-      feedbackEl.textContent = message;
-      feedbackEl.className = "code-search-feedback code-search-feedback-" + kind;
-      feedbackEl.hidden = false;
-    }
-
-    function hideSuggestions() {
-      suggestionsEl.hidden = true;
-      suggestionsEl.innerHTML = "";
-    }
-
-    function selectItem(item) {
-      hiddenEl.value = item.value;
-      inputEl.value = item.label;
-      hideSuggestions();
-      showFeedback("✓ " + item.label, "ok");
-    }
-
-    function renderSuggestions(matches) {
-      suggestionsEl.innerHTML = "";
-      matches.slice(0, 8).forEach((item) => {
-        const el = document.createElement("div");
-        el.className = "code-search-option";
-        el.textContent = item.label;
-        el.addEventListener("mousedown", (event) => {
-          event.preventDefault(); // keep input focus so blur fires after selection
-          selectItem(item);
-        });
-        suggestionsEl.appendChild(el);
-      });
-      suggestionsEl.hidden = matches.length === 0;
-    }
-
-    inputEl.addEventListener("input", () => {
-      hiddenEl.value = "";
-      const query = inputEl.value.trim().toLowerCase();
-      if (!query) {
-        hideSuggestions();
-        showFeedback("", "ok");
-        return;
-      }
-      const exact = items.find((item) => item.code.toLowerCase() === query);
-      if (exact) {
-        selectItem(exact);
-        return;
-      }
-      const matches = items.filter(
-        (item) => item.code.toLowerCase().startsWith(query) || item.name.toLowerCase().includes(query)
-      );
-      if (matches.length) {
-        renderSuggestions(matches);
-        showFeedback("", "ok");
-      } else {
-        hideSuggestions();
-        showFeedback("لا يوجد كود أو اسم مطابق لما أدخلته", "error");
-      }
-    });
-
-    inputEl.addEventListener("blur", () => {
-      // Let a suggestion's mousedown run before we validate on blur.
-      setTimeout(() => {
-        hideSuggestions();
-        if (hiddenEl.value) return;
-        const query = inputEl.value.trim();
-        if (!query) {
-          showFeedback("", "ok");
-          return;
-        }
-        showFeedback("لا يوجد كود أو اسم مطابق لما أدخلته", "error");
-      }, 150);
-    });
-
-    // Re-focusing a field that already holds a resolved selection (a
-    // matched student, or a quick-selected option) clears it instantly
-    // so the student can search again without deleting the old text
-    // by hand.
-    inputEl.addEventListener("focus", () => {
-      if (!hiddenEl.value) return;
-      hiddenEl.value = "";
-      inputEl.value = "";
-      showFeedback("", "ok");
-      if (onClear) onClear();
-    });
-
-    return {
-      setQuickValue(value, label) {
-        hiddenEl.value = value;
-        inputEl.value = label;
-        hideSuggestions();
-        showFeedback("✓ " + label, "ok");
-      },
-    };
-  }
-
   async function loadStudents(client) {
     const { data, error } = await client
       .from("students")
-      .select("id, code, name")
+      .select("id, code")
       .eq("active", true)
       .order("code", { ascending: true });
     if (error) {
@@ -134,6 +30,34 @@
       return [];
     }
     return sortStudentsByCode(data || []);
+  }
+
+  function populateCodeSelect(selectEl, students, placeholder, selectedValue, extraOptions) {
+    const allowedValues = new Set(students.map((student) => student.id));
+    (extraOptions || []).forEach((option) => allowedValues.add(option.value));
+    const nextValue = allowedValues.has(selectedValue) ? selectedValue : "";
+
+    selectEl.innerHTML = "";
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = students.length ? placeholder : "لا توجد أكواد متاحة الآن";
+    selectEl.appendChild(placeholderOption);
+
+    (extraOptions || []).forEach((option) => {
+      const opt = document.createElement("option");
+      opt.value = option.value;
+      opt.textContent = option.label;
+      selectEl.appendChild(opt);
+    });
+
+    students.forEach((student) => {
+      const opt = document.createElement("option");
+      opt.value = student.id;
+      opt.textContent = student.code;
+      selectEl.appendChild(opt);
+    });
+
+    selectEl.value = nextValue;
   }
 
   function sortStudentsByCode(students) {
@@ -190,21 +114,17 @@
     const client = getClient();
     if (!client) return;
 
-    const studentHidden = document.getElementById("student-code");
-    const listenerHidden = document.getElementById("listener-code");
+    const studentSelect = document.getElementById("student-code");
+    const listenerSelect = document.getElementById("listener-code");
     const form = document.getElementById("checkin-form");
     const submitBtn = document.getElementById("submit-btn");
+    const listenerQuickOptions = [
+      { value: "__outside__", label: "شخص آخر خارج تعاهُد" },
+      { value: "__listening_only__", label: "وِرد استماع" },
+    ];
 
-    const students = await loadStudents(client);
-    const items = students.map((s) => ({ value: s.id, code: s.code, name: s.name, label: s.code + " — " + s.name }));
-
-    setupCodeSearch({
-      inputEl: document.getElementById("student-code-input"),
-      hiddenEl: studentHidden,
-      suggestionsEl: document.getElementById("student-code-suggestions"),
-      feedbackEl: document.getElementById("student-code-feedback"),
-      items,
-    });
+    let students = [];
+    let refreshInFlight = null;
 
     function deactivateListenerChips() {
       document.querySelectorAll(".code-search-quick-options .chip").forEach((btn) => {
@@ -212,28 +132,48 @@
       });
     }
 
-    const listenerSearch = setupCodeSearch({
-      inputEl: document.getElementById("listener-code-input"),
-      hiddenEl: listenerHidden,
-      suggestionsEl: document.getElementById("listener-code-suggestions"),
-      feedbackEl: document.getElementById("listener-code-feedback"),
-      items,
-      onClear: deactivateListenerChips,
-    });
+    async function refreshCodeLists() {
+      if (refreshInFlight) return refreshInFlight;
+      refreshInFlight = loadStudents(client)
+        .then((nextStudents) => {
+          students = nextStudents;
+          populateCodeSelect(studentSelect, students, "اختر كودك...", studentSelect.value);
+          populateCodeSelect(
+            listenerSelect,
+            students,
+            "اختر الكود...",
+            listenerSelect.value,
+            listenerQuickOptions
+          );
+        })
+        .finally(() => {
+          refreshInFlight = null;
+        });
+      return refreshInFlight;
+    }
 
-    const listenerQuickLabels = {
-      __outside__: "شخص آخر خارج تعاهُد",
-      __listening_only__: "وِرد استماع",
-    };
+    await refreshCodeLists();
+
     document.querySelectorAll(".code-search-quick-options .chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         const value = chip.dataset.quickValue;
         document
           .querySelectorAll(".code-search-quick-options .chip")
           .forEach((btn) => btn.classList.toggle("active", btn === chip));
-        listenerSearch.setQuickValue(value, listenerQuickLabels[value]);
+        listenerSelect.value = value;
       });
     });
+
+    listenerSelect.addEventListener("change", deactivateListenerChips);
+    window.addEventListener("focus", refreshCodeLists);
+    window.setInterval(refreshCodeLists, 30000);
+
+    if (typeof client.channel === "function") {
+      client
+        .channel("student-code-list")
+        .on("postgres_changes", { event: "*", schema: "public", table: "students" }, refreshCodeLists)
+        .subscribe();
+    }
 
     const pointRules = await loadPointRules(client);
 
@@ -247,8 +187,8 @@
       const satisfactionValue = document.getElementById("satisfaction").value;
 
       if (
-        !studentHidden.value ||
-        !listenerHidden.value ||
+        !studentSelect.value ||
+        !listenerSelect.value ||
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
         pagesValue < 0 ||
@@ -260,11 +200,11 @@
         return;
       }
 
-      const listenerSelection = readListenerSelection(listenerHidden.value);
-      const reciterAlreadyLoggedToday = await hasStudentSessionToday(client, studentHidden.value, new Date());
+      const listenerSelection = readListenerSelection(listenerSelect.value);
+      const reciterAlreadyLoggedToday = await hasStudentSessionToday(client, studentSelect.value, new Date());
       const listenerAlreadyLoggedToday =
         listenerSelection.listenerType === "student"
-          ? listenerSelection.listenerStudentId === studentHidden.value
+          ? listenerSelection.listenerStudentId === studentSelect.value
             ? reciterAlreadyLoggedToday
             : await hasStudentSessionToday(client, listenerSelection.listenerStudentId, new Date())
           : false;
@@ -277,7 +217,7 @@
           listenerSelection.listenerType === "student" && !listenerAlreadyLoggedToday,
       });
       const payload = {
-        student_id: studentHidden.value,
+        student_id: studentSelect.value,
         listener_type: listenerSelection.listenerType,
         listener_student_id: listenerSelection.listenerStudentId,
         pages: pagesValue,
@@ -298,17 +238,10 @@
         return;
       }
 
-      const student = students.find((s) => s.id === payload.student_id);
-      showToast("شكراً لتسجيلك يا " + (student ? student.name : "طالبنا") + "!", "success");
+      showToast("تم تسجيل الجلسة بنجاح", "success");
       form.reset();
-      document.querySelectorAll(".code-search-feedback").forEach((el) => {
-        el.hidden = true;
-      });
-      document.querySelectorAll(".code-search-suggestions").forEach((el) => {
-        el.hidden = true;
-        el.innerHTML = "";
-      });
       deactivateListenerChips();
+      await refreshCodeLists();
     });
   }
 
