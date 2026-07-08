@@ -129,6 +129,7 @@ window.TaahudAdmin = (function () {
         return;
       }
       showDashboard();
+      await refreshRoster();
     });
 
     document.getElementById("logout-btn").addEventListener("click", async () => {
