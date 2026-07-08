@@ -41,6 +41,10 @@ window.TaahudAdmin = (function () {
     });
     if (name === "settings") refreshSettingsForm();
     if (name === "stats") refreshStats();
+    if (name === "log") {
+      populateLogStudentFilter();
+      refreshLog();
+    }
   }
 
   async function loadActiveStudents() {
@@ -259,6 +263,84 @@ window.TaahudAdmin = (function () {
     });
   }
 
+  let allLogSessions = [];
+
+  async function loadSessionsForLog() {
+    const { data, error } = await state.client
+      .from("sessions")
+      .select(
+        "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
+          "student:student_id(code, name), listener:listener_student_id(code, name)"
+      )
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("[Ta'ahud] Failed to load session log", error);
+      return [];
+    }
+    return data.map((row) => ({
+      id: row.id,
+      studentId: row.student_id,
+      listenerStudentId: row.listener_student_id,
+      method: row.method,
+      createdAt: row.created_at,
+      pages: row.pages,
+      studentLabel: row.student ? row.student.code + " — " + row.student.name : "",
+      listenerLabel:
+        row.listener_type === "outside"
+          ? "شخص آخر خارج تعاهُد"
+          : row.listener_type === "listening_only"
+          ? "وِرد استماع"
+          : row.listener
+          ? row.listener.code + " — " + row.listener.name
+          : "",
+    }));
+  }
+
+  function renderLogTable(rows) {
+    const body = document.getElementById("log-body");
+    body.innerHTML = "";
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      [new Date(row.createdAt).toLocaleString("ar-EG"), row.studentLabel, row.listenerLabel, row.pages, row.method].forEach(
+        (value) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        }
+      );
+      body.appendChild(tr);
+    });
+  }
+
+  function applyLogFilters() {
+    const studentId = document.getElementById("log-filter-student").value;
+    const method = document.getElementById("log-filter-method").value;
+    const filtered = window.TaahudSessionLog.filterSessions(allLogSessions, { studentId, method });
+    renderLogTable(filtered);
+  }
+
+  async function refreshLog() {
+    allLogSessions = await loadSessionsForLog();
+    applyLogFilters();
+  }
+
+  async function populateLogStudentFilter() {
+    const students = await loadActiveStudents();
+    const select = document.getElementById("log-filter-student");
+    select.innerHTML = '<option value="">كل الطلاب</option>';
+    students.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.code + " — " + s.name;
+      select.appendChild(opt);
+    });
+  }
+
+  function wireLogControls() {
+    document.getElementById("log-filter-student").addEventListener("change", applyLogFilters);
+    document.getElementById("log-filter-method").addEventListener("change", applyLogFilters);
+  }
+
   async function init() {
     const client = getClient();
     if (!client) return;
@@ -269,6 +351,7 @@ window.TaahudAdmin = (function () {
     wireAddStudent();
     wireSettings();
     wireStatsControls();
+    wireLogControls();
 
     const {
       data: { session },
