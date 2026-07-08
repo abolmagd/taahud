@@ -36,10 +36,12 @@ window.TaahudAdmin = (function () {
     document.querySelectorAll(".tabs > .tab[data-tab]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === name);
     });
-    ["roster", "settings", "stats", "log"].forEach((tab) => {
+    ["overview", "roster", "settings", "stats", "log"].forEach((tab) => {
       document.getElementById("tab-" + tab).hidden = tab !== name;
     });
     document.getElementById("tab-student-detail").hidden = true;
+    if (name === "overview") refreshOverview();
+    if (name === "roster") refreshRoster();
     if (name === "settings") refreshSettingsForm();
     if (name === "stats") refreshStats();
     if (name === "log") {
@@ -58,7 +60,7 @@ window.TaahudAdmin = (function () {
       console.error("[Ta'ahud] Failed to load students", error);
       return [];
     }
-    return data || [];
+    return sortStudentsByCode(data || []);
   }
 
   async function loadAllStudents() {
@@ -70,12 +72,24 @@ window.TaahudAdmin = (function () {
       console.error("[Ta'ahud] Failed to load students", error);
       return [];
     }
-    return data || [];
+    return sortStudentsByCode(data || []);
+  }
+
+  function sortStudentsByCode(students) {
+    return students.slice().sort((a, b) => {
+      const aNumber = Number(a.code);
+      const bNumber = Number(b.code);
+      if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) return aNumber - bNumber;
+      return String(a.code).localeCompare(String(b.code), "ar", { numeric: true });
+    });
   }
 
   function renderRoster(students) {
     const body = document.getElementById("roster-body");
     body.innerHTML = "";
+    const activeCount = currentRoster.filter((student) => student.active).length;
+    document.getElementById("roster-summary").textContent =
+      currentRoster.length + " طالب، " + activeCount + " نشط";
     students.forEach((student) => {
       const row = document.createElement("tr");
 
@@ -120,6 +134,15 @@ window.TaahudAdmin = (function () {
       row.appendChild(actionCell);
       body.appendChild(row);
     });
+    if (!students.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 4;
+      cell.className = "empty-cell";
+      cell.textContent = "لا توجد نتائج مطابقة";
+      row.appendChild(cell);
+      body.appendChild(row);
+    }
   }
 
   let currentRoster = [];
@@ -191,38 +214,51 @@ window.TaahudAdmin = (function () {
     });
   }
 
-  async function loadPointValue() {
+  function getPointRulesFromForm() {
+    return window.TaahudPoints.normalizePointRules({
+      dailyCheckin: document.getElementById("daily-checkin-points").value,
+      reciterPage: document.getElementById("reciter-page-points").value,
+      listenerPage: document.getElementById("listener-page-points").value,
+    });
+  }
+
+  function setPointRulesForm(rules) {
+    const normalized = window.TaahudPoints.normalizePointRules(rules);
+    document.getElementById("daily-checkin-points").value = normalized.dailyCheckin;
+    document.getElementById("reciter-page-points").value = normalized.reciterPage;
+    document.getElementById("listener-page-points").value = normalized.listenerPage;
+  }
+
+  async function loadPointRules() {
     const { data, error } = await state.client
       .from("settings")
       .select("value")
-      .eq("key", "point_value")
-      .single();
+      .eq("key", "point_rules")
+      .maybeSingle();
     if (error || !data) {
-      console.error("[Ta'ahud] Failed to load point value", error);
-      return 0;
+      console.warn("[Ta'ahud] Failed to load point rules, using defaults", error);
+      return window.TaahudPoints.normalizePointRules();
     }
-    return Number(data.value && data.value.value) || 0;
+    return window.TaahudPoints.normalizePointRules(data.value);
   }
 
-  async function savePointValue(newValue) {
+  async function savePointRules(rules) {
     const { error } = await state.client
       .from("settings")
-      .update({ value: { value: newValue } })
-      .eq("key", "point_value");
+      .upsert({ key: "point_rules", value: rules }, { onConflict: "key" });
     return !error;
   }
 
   function wireSettings() {
     document.getElementById("settings-form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const newValue = Number(document.getElementById("point-value").value);
-      const ok = await savePointValue(newValue);
+      const ok = await savePointRules(getPointRulesFromForm());
       showToast("settings-toast", ok ? "تم الحفظ" : "حدث خطأ أثناء الحفظ", ok ? "success" : "error");
     });
   }
 
   async function refreshSettingsForm() {
-    document.getElementById("point-value").value = await loadPointValue();
+    setPointRulesForm(await loadPointRules());
   }
 
   let statsPeriod = "day";
@@ -232,7 +268,9 @@ window.TaahudAdmin = (function () {
   async function loadSessionsForStats() {
     const { data, error } = await state.client
       .from("sessions")
-      .select("student_id, listener_type, listener_student_id, pages, points_awarded, created_at");
+      .select(
+        "student_id, listener_type, listener_student_id, pages, points_awarded, listener_points_awarded, created_at"
+      );
     if (error) {
       console.error("[Ta'ahud] Failed to load sessions", error);
       return [];
@@ -243,6 +281,7 @@ window.TaahudAdmin = (function () {
       listenerStudentId: row.listener_student_id,
       pages: row.pages,
       pointsAwarded: row.points_awarded,
+      listenerPointsAwarded: row.listener_points_awarded,
       createdAt: row.created_at,
     }));
   }
@@ -268,6 +307,10 @@ window.TaahudAdmin = (function () {
     document.getElementById("total-pages").textContent = totals.totalPages;
     document.getElementById("total-points").textContent = totals.totalPoints;
     document.getElementById("total-active-students").textContent = totals.activeStudents;
+    document.getElementById("total-average-pages").textContent = formatNumber(totals.averagePages);
+    document.getElementById("stats-student-listener-sessions").textContent = totals.studentListenerSessions;
+    document.getElementById("stats-outside-sessions").textContent = totals.outsideSessions;
+    document.getElementById("stats-listening-only-sessions").textContent = totals.listeningOnlySessions;
   }
 
   async function refreshStats() {
@@ -308,7 +351,7 @@ window.TaahudAdmin = (function () {
       .from("sessions")
       .select(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
-          "points_awarded, surah_range, satisfaction, notes, " +
+          "points_awarded, listener_points_awarded, surah_range, satisfaction, notes, " +
           "student:students!student_id(code, name), listener:students!listener_student_id(code, name)"
       )
       .order("created_at", { ascending: false });
@@ -325,6 +368,7 @@ window.TaahudAdmin = (function () {
       createdAt: row.created_at,
       pages: row.pages,
       pointsAwarded: row.points_awarded,
+      listenerPointsAwarded: row.listener_points_awarded,
       surahRange: row.surah_range,
       satisfaction: row.satisfaction,
       notes: row.notes,
@@ -340,6 +384,183 @@ window.TaahudAdmin = (function () {
     }));
   }
 
+  function setText(id, value) {
+    document.getElementById(id).textContent = value;
+  }
+
+  function formatNumber(value) {
+    const number = Number(value) || 0;
+    if (Number.isInteger(number)) return String(number);
+    return number.toFixed(1);
+  }
+
+  function shortDate(value) {
+    return new Date(value).toLocaleDateString("ar-EG", { day: "numeric", month: "short" });
+  }
+
+  function sameLocalDay(a, b) {
+    const first = new Date(a);
+    const second = new Date(b);
+    return (
+      first.getFullYear() === second.getFullYear() &&
+      first.getMonth() === second.getMonth() &&
+      first.getDate() === second.getDate()
+    );
+  }
+
+  function clearAndEmpty(container, message) {
+    container.innerHTML = "";
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = message;
+    container.appendChild(empty);
+  }
+
+  function renderTopStudents(rows) {
+    const container = document.getElementById("overview-top-students");
+    container.innerHTML = "";
+    if (!rows.length) {
+      clearAndEmpty(container, "لا توجد نقاط مسجلة هذا الشهر بعد");
+      return;
+    }
+    rows.forEach((student, index) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "rank-item";
+      item.addEventListener("click", () =>
+        showStudentDetail({ id: student.studentId, code: student.code, name: student.name, active: true })
+      );
+      const rankNumber = document.createElement("span");
+      rankNumber.className = "rank-number";
+      rankNumber.textContent = index + 1;
+      const name = document.createElement("span");
+      name.className = "rank-name";
+      name.textContent = student.code + " — " + student.name;
+      const points = document.createElement("strong");
+      points.textContent = student.pointsEarned;
+      item.append(rankNumber, name, points);
+      container.appendChild(item);
+    });
+  }
+
+  function renderRecentSessions(rows) {
+    const container = document.getElementById("overview-recent-sessions");
+    container.innerHTML = "";
+    if (!rows.length) {
+      clearAndEmpty(container, "لم يتم تسجيل جلسات بعد");
+      return;
+    }
+    rows.slice(0, 6).forEach((session) => {
+      const item = document.createElement("div");
+      item.className = "compact-item";
+      const title = document.createElement("span");
+      title.className = "compact-title";
+      title.textContent = session.studentLabel;
+      const meta = document.createElement("span");
+      meta.className = "compact-meta";
+      meta.textContent = session.pages + " صفحة · " + session.method + " · " + shortDate(session.createdAt);
+      item.append(title, meta);
+      container.appendChild(item);
+    });
+  }
+
+  function renderBarList(elementId, rows, valueKey) {
+    const container = document.getElementById(elementId);
+    container.innerHTML = "";
+    if (!rows.length) {
+      clearAndEmpty(container, "لا توجد بيانات كافية");
+      return;
+    }
+    const max = Math.max.apply(
+      null,
+      rows.map((row) => Number(row[valueKey]) || 0)
+    );
+    rows.slice(0, 5).forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "bar-row";
+      const value = Number(row[valueKey]) || 0;
+      const head = document.createElement("div");
+      head.className = "bar-row-head";
+      const label = document.createElement("span");
+      label.textContent = row.label;
+      const amount = document.createElement("strong");
+      amount.textContent = value;
+      head.append(label, amount);
+      const track = document.createElement("div");
+      track.className = "bar-track";
+      const fill = document.createElement("span");
+      fill.style.width = (max ? Math.max(8, (value / max) * 100) : 0) + "%";
+      track.appendChild(fill);
+      item.append(head, track);
+      container.appendChild(item);
+    });
+  }
+
+  function renderDailyActivity(sessions, referenceDate) {
+    const container = document.getElementById("overview-daily-activity");
+    container.innerHTML = "";
+    const days = [];
+    const ref = new Date(referenceDate);
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const day = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - offset);
+      const daySessions = sessions.filter((session) => sameLocalDay(session.createdAt, day));
+      days.push({
+        date: day,
+        sessions: daySessions.length,
+        pages: daySessions.reduce((sum, session) => sum + (Number(session.pages) || 0), 0),
+        points: daySessions.reduce(
+          (sum, session) => sum + (Number(session.pointsAwarded) || 0) + (Number(session.listenerPointsAwarded) || 0),
+          0
+        ),
+      });
+    }
+    const maxPoints = Math.max.apply(
+      null,
+      days.map((day) => day.points)
+    );
+    days.forEach((day) => {
+      const item = document.createElement("div");
+      item.className = "activity-day";
+      item.innerHTML =
+        '<span class="activity-bar" style="height:' +
+        (maxPoints ? Math.max(10, (day.points / maxPoints) * 100) : 10) +
+        '%"></span><strong>' +
+        day.sessions +
+        "</strong><small>" +
+        shortDate(day.date) +
+        "</small>";
+      item.title = day.pages + " صفحة · " + day.points + " نقطة";
+      container.appendChild(item);
+    });
+  }
+
+  async function refreshOverview() {
+    const [students, sessions] = await Promise.all([loadAllStudents(), loadSessionsForLog()]);
+    const activeStudents = students.filter((student) => student.active);
+    const now = new Date();
+    const todayTotals = window.TaahudStats.aggregateTotals(sessions, "day", now);
+    const weekTotals = window.TaahudStats.aggregateTotals(sessions, "week", now);
+
+    setText("overview-today-sessions", todayTotals.totalSessions);
+    setText("overview-today-pages", todayTotals.totalPages + " صفحة");
+    setText("overview-today-points", todayTotals.totalPoints);
+    setText("overview-today-active", todayTotals.activeStudents + " طالب نشط");
+    setText("overview-week-sessions", weekTotals.totalSessions);
+    setText("overview-week-pages", weekTotals.totalPages + " صفحة");
+    setText("overview-total-students", students.length);
+    setText("overview-active-students", activeStudents.length + " نشط");
+
+    renderDailyActivity(sessions, now);
+    renderTopStudents(window.TaahudStats.topStudents(activeStudents, sessions, "month", now, 6));
+    renderRecentSessions(sessions);
+    renderBarList("overview-methods", window.TaahudStats.aggregateByField(sessions, "month", now, "method", "غير محدد"), "sessions");
+    renderBarList(
+      "overview-satisfaction",
+      window.TaahudStats.aggregateByField(sessions, "month", now, "satisfaction", "غير محدد"),
+      "sessions"
+    );
+  }
+
   function renderLogTable(rows) {
     const body = document.getElementById("log-body");
     body.innerHTML = "";
@@ -352,6 +573,8 @@ window.TaahudAdmin = (function () {
         row.pages,
         row.surahRange || "",
         row.method,
+        row.pointsAwarded || 0,
+        row.listenerPointsAwarded || 0,
         row.satisfaction || "",
         row.notes || "",
       ].forEach((value) => {
@@ -407,6 +630,7 @@ window.TaahudAdmin = (function () {
           pages: s.pages,
           surahRange: s.surahRange,
           method: s.method,
+          points: isReciter ? s.pointsAwarded || 0 : s.listenerPointsAwarded || 0,
           satisfaction: s.satisfaction,
           notes: s.notes,
         };
@@ -425,6 +649,7 @@ window.TaahudAdmin = (function () {
         row.pages,
         row.surahRange || "",
         row.method,
+        row.points,
         row.satisfaction || "",
         row.notes || "",
       ].forEach((value) => {
@@ -481,7 +706,7 @@ window.TaahudAdmin = (function () {
 
     if (session) {
       showDashboard();
-      await refreshRoster();
+      await refreshOverview();
     } else {
       showLogin();
     }

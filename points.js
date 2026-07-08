@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
 // Ta'ahud — Points calculation
 // Pure, dependency-free logic shared by the check-in page (app.js)
-// and Node tests. Points are only ever awarded to a real student
-// listener; "outside" and "listening_only" sessions award nothing.
+// and Node tests. A session snapshots the points awarded to both
+// participants so future settings changes never rewrite history.
 // UMD/CommonJS because app.js is a classic script.
 // ═══════════════════════════════════════════════════════════════
 (function (root, factory) {
@@ -14,13 +14,42 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  function computeSessionPoints(input) {
-    const listenerType = input && input.listenerType;
-    if (listenerType !== "student") return 0;
-    const value = Number(input.pointValue);
-    if (!Number.isFinite(value) || value <= 0) return 0;
-    return Math.trunc(value);
+  const DEFAULT_POINT_RULES = {
+    dailyCheckin: 5,
+    reciterPage: 2,
+    listenerPage: 1,
+  };
+
+  function positiveInteger(value, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return fallback;
+    return Math.trunc(number);
   }
 
-  return { computeSessionPoints };
+  function normalizePointRules(value) {
+    const source = value || {};
+    return {
+      dailyCheckin: positiveInteger(source.dailyCheckin, DEFAULT_POINT_RULES.dailyCheckin),
+      reciterPage: positiveInteger(source.reciterPage, DEFAULT_POINT_RULES.reciterPage),
+      listenerPage: positiveInteger(source.listenerPage, DEFAULT_POINT_RULES.listenerPage),
+    };
+  }
+
+  function computeSessionPoints(input) {
+    const rules = normalizePointRules(input && input.pointRules);
+    const pages = Math.max(0, Number(input && input.pages) || 0);
+    const listenerType = input && input.listenerType;
+
+    const reciterDailyPoints = input && input.awardReciterDailyCheckin ? rules.dailyCheckin : 0;
+    const listenerDailyPoints =
+      listenerType === "student" && input && input.awardListenerDailyCheckin ? rules.dailyCheckin : 0;
+
+    return {
+      reciterPoints: reciterDailyPoints + Math.trunc(pages * rules.reciterPage),
+      listenerPoints:
+        listenerType === "student" ? listenerDailyPoints + Math.trunc(pages * rules.listenerPage) : 0,
+    };
+  }
+
+  return { DEFAULT_POINT_RULES, normalizePointRules, computeSessionPoints };
 });

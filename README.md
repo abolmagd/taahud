@@ -18,8 +18,8 @@ project, its own Vercel deployment.
 5. In the admin dashboard (`admin.html`), log in and use the "الطلاب" tab to
    add your students (code + name) — there's no bulk import, add them one at a
    time.
-6. In the "الإعدادات" tab, set how many points a session should award its
-   listener.
+6. In the "الإعدادات" tab, set the three point rules: daily check-in/streak,
+   points per recited page, and points per listened page.
 
 ## Local development
 
@@ -49,9 +49,11 @@ Deploy the project root to Vercel as a static site (no build command needed).
 
 - [ ] Student check-in form loads both dropdowns with the seeded roster.
 - [ ] Submitting a session with a real student listener creates a `sessions`
-      row with the correct `points_awarded`.
-- [ ] Submitting with "وِرد استماع" or "شخص آخر خارج تعاهُد" creates a row with
-      `points_awarded = 0`.
+      row with the correct `points_awarded` for the reciter and
+      `listener_points_awarded` for the listener.
+- [ ] Submitting with "وِرد استماع" or "شخص آخر خارج تعاهُد" creates listener
+      points of `0`, while the reciter still gets their configured daily/page
+      points.
 - [ ] Admin login rejects a wrong password and accepts the right one.
 - [ ] Admin can add/deactivate a student, and a deactivated student disappears
       from the check-in dropdowns.

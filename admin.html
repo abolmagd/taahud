@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>تعاهُد — لوحة الإدارة</title>
+  <link rel="icon" href="assets/logo.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="page" id="login-view">
     <div class="card login-screen">
-      <img src="assets/logo.jpeg" alt="تعاهُد" class="app-logo" style="margin:0 auto 8px;" />
+      <img src="assets/logo.png" alt="تعاهُد" class="app-logo" style="margin:0 auto 8px;" />
       <h1 style="text-align:center;color:var(--brand);font-family:var(--font-heading);">تعاهُد</h1>
       <p class="muted" style="text-align:center;">لوحة الإدارة</p>
       <form id="login-form" novalidate>
@@ -23,33 +24,103 @@
     </div>
   </div>
 
-  <div class="page" id="dashboard-view" hidden>
-    <header class="app-header" style="display:flex;justify-content:space-between;align-items:center;text-align:right;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <img src="assets/logo.jpeg" alt="تعاهُد" class="app-logo app-logo-sm" />
+  <div class="page admin-page" id="dashboard-view" hidden>
+    <header class="app-header admin-header">
+      <div class="admin-brand">
+        <img src="assets/logo.png" alt="تعاهُد" class="app-logo app-logo-sm" />
         <div>
           <h1 style="margin:0;">تعاهُد</h1>
           <p class="muted" style="margin:0;">لوحة الإدارة</p>
         </div>
       </div>
-      <button class="btn btn-secondary" id="logout-btn">خروج</button>
+      <div class="admin-actions">
+        <a class="btn btn-secondary" href="index.html" target="_blank" rel="noopener">فتح التسجيل</a>
+        <button class="btn btn-secondary" id="logout-btn">خروج</button>
+      </div>
     </header>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="roster">الطلاب</button>
+    <nav class="tabs admin-tabs">
+      <button class="tab active" data-tab="overview">نظرة عامة</button>
+      <button class="tab" data-tab="roster">الطلاب</button>
       <button class="tab" data-tab="settings">الإعدادات</button>
       <button class="tab" data-tab="stats">الإحصائيات</button>
       <button class="tab" data-tab="log">سجل الجلسات</button>
     </nav>
 
-    <section class="card" id="tab-roster">
-      <h2>الطلاب</h2>
-      <form id="add-student-form" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;">
-        <div class="form-group" style="flex:1;margin-bottom:0;">
+    <section class="dashboard-grid" id="tab-overview">
+      <article class="metric-card metric-primary">
+        <span class="metric-label">جلسات اليوم</span>
+        <strong id="overview-today-sessions">0</strong>
+        <span id="overview-today-pages">0 صفحة</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">نقاط اليوم</span>
+        <strong id="overview-today-points">0</strong>
+        <span id="overview-today-active">0 طالب نشط</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">هذا الأسبوع</span>
+        <strong id="overview-week-sessions">0</strong>
+        <span id="overview-week-pages">0 صفحة</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">كل الطلاب</span>
+        <strong id="overview-total-students">0</strong>
+        <span id="overview-active-students">0 نشط</span>
+      </article>
+
+      <section class="card dashboard-panel dashboard-wide">
+        <div class="section-heading">
+          <h2>آخر ٧ أيام</h2>
+          <p class="muted">جلسات، صفحات، ونقاط يومية</p>
+        </div>
+        <div class="activity-strip" id="overview-daily-activity"></div>
+      </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
+          <h2>أفضل الطلاب</h2>
+          <p class="muted">حسب النقاط هذا الشهر</p>
+        </div>
+        <div class="rank-list" id="overview-top-students"></div>
+      </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
+          <h2>آخر الجلسات</h2>
+          <p class="muted">متصل مباشرة بسجل التسجيل</p>
+        </div>
+        <div class="compact-list" id="overview-recent-sessions"></div>
+      </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
+          <h2>طرق التسميع</h2>
+          <p class="muted">الأكثر استخدامًا هذا الشهر</p>
+        </div>
+        <div class="bar-list" id="overview-methods"></div>
+      </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
+          <h2>مؤشرات الجودة</h2>
+          <p class="muted">حسب اختيار الرضا</p>
+        </div>
+        <div class="bar-list" id="overview-satisfaction"></div>
+      </section>
+    </section>
+
+    <section class="card" id="tab-roster" hidden>
+      <div class="section-heading">
+        <h2>الطلاب</h2>
+        <p class="muted" id="roster-summary">0 طالب</p>
+      </div>
+      <form id="add-student-form" class="inline-form">
+        <div class="form-group">
           <label for="new-code">الكود</label>
           <input type="text" id="new-code" required />
         </div>
-        <div class="form-group" style="flex:2;margin-bottom:0;">
+        <div class="form-group form-wide">
           <label for="new-name">الاسم</label>
           <input type="text" id="new-name" required />
         </div>
@@ -59,12 +130,14 @@
         <label for="roster-search">البحث بالكود أو الاسم</label>
         <input type="text" id="roster-search" autocomplete="off" placeholder="مثال: 042" />
       </div>
-      <table class="table" id="roster-table">
-        <thead>
-          <tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th></th></tr>
-        </thead>
-        <tbody id="roster-body"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="table" id="roster-table">
+          <thead>
+            <tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th></th></tr>
+          </thead>
+          <tbody id="roster-body"></tbody>
+        </table>
+      </div>
       <div id="roster-toast" class="toast" hidden></div>
     </section>
 
@@ -93,29 +166,42 @@
           <span class="stat-tile-label">النقاط</span>
         </div>
       </div>
-      <table class="table" id="student-detail-table">
-        <thead>
-          <tr>
-            <th>التاريخ</th>
-            <th>الدور</th>
-            <th>الطرف الآخر</th>
-            <th>الصفحات</th>
-            <th>من</th>
-            <th>الطريقة</th>
-            <th>الرضا</th>
-            <th>الملاحظات</th>
-          </tr>
-        </thead>
-        <tbody id="student-detail-body"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="table" id="student-detail-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>الدور</th>
+              <th>الطرف الآخر</th>
+              <th>الصفحات</th>
+              <th>من</th>
+              <th>الطريقة</th>
+              <th>النقاط</th>
+              <th>الرضا</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody id="student-detail-body"></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="card" id="tab-settings" hidden>
       <h2>الإعدادات</h2>
       <form id="settings-form">
-        <div class="form-group">
-          <label for="point-value">عدد النقاط لكل جلسة تسميع</label>
-          <input type="number" id="point-value" min="0" step="1" required />
+        <div class="settings-grid">
+          <div class="form-group">
+            <label for="daily-checkin-points">التسجيل اليومي</label>
+            <input type="number" id="daily-checkin-points" min="0" step="1" required />
+          </div>
+          <div class="form-group">
+            <label for="reciter-page-points">اللي سمّع: لكل صفحة</label>
+            <input type="number" id="reciter-page-points" min="0" step="1" required />
+          </div>
+          <div class="form-group">
+            <label for="listener-page-points">اللي تم التسميع له: لكل صفحة</label>
+            <input type="number" id="listener-page-points" min="0" step="1" required />
+          </div>
         </div>
         <button type="submit" class="btn btn-primary">حفظ</button>
       </form>
@@ -128,6 +214,7 @@
         <button class="tab active" data-period="day">اليوم</button>
         <button class="tab" data-period="week">الأسبوع</button>
         <button class="tab" data-period="month">الشهر</button>
+        <button class="tab" data-period="all">الكل</button>
       </nav>
       <div class="stat-tiles" id="stats-totals">
         <div class="stat-tile">
@@ -146,25 +233,45 @@
           <span class="stat-tile-value" id="total-active-students">0</span>
           <span class="stat-tile-label">طالب نشط</span>
         </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="total-average-pages">0</span>
+          <span class="stat-tile-label">متوسط الصفحات</span>
+        </div>
       </div>
-      <table class="table" id="stats-table">
-        <thead>
-          <tr>
-            <th data-col="name">الاسم</th>
-            <th data-col="sessionsRecited">جلسات التسميع</th>
-            <th data-col="pagesRecited">صفحات مسمّعة</th>
-            <th data-col="sessionsListened">جلسات الاستماع</th>
-            <th data-col="pagesListened">صفحات مستمع لها</th>
-            <th data-col="pointsEarned">النقاط</th>
-          </tr>
-        </thead>
-        <tbody id="stats-body"></tbody>
-      </table>
+      <div class="insight-grid">
+        <div class="mini-panel">
+          <span class="metric-label">جلسات مع طالب</span>
+          <strong id="stats-student-listener-sessions">0</strong>
+        </div>
+        <div class="mini-panel">
+          <span class="metric-label">خارج تعاهُد</span>
+          <strong id="stats-outside-sessions">0</strong>
+        </div>
+        <div class="mini-panel">
+          <span class="metric-label">وِرد استماع</span>
+          <strong id="stats-listening-only-sessions">0</strong>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="stats-table">
+          <thead>
+            <tr>
+              <th data-col="name">الاسم</th>
+              <th data-col="sessionsRecited">جلسات التسميع</th>
+              <th data-col="pagesRecited">صفحات مسمّعة</th>
+              <th data-col="sessionsListened">جلسات الاستماع</th>
+              <th data-col="pagesListened">صفحات مستمع لها</th>
+              <th data-col="pointsEarned">النقاط</th>
+            </tr>
+          </thead>
+          <tbody id="stats-body"></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="card" id="tab-log" hidden>
       <h2>سجل الجلسات</h2>
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="filter-row">
         <select id="log-filter-student"><option value="">كل الطلاب</option></select>
         <select id="log-filter-method">
           <option value="">كل الطرق</option>
@@ -177,26 +284,31 @@
           <option value="أخرى">أخرى</option>
         </select>
       </div>
-      <table class="table" id="log-table">
-        <thead>
-          <tr>
-            <th>التاريخ</th>
-            <th>الطالب</th>
-            <th>السامع</th>
-            <th>الصفحات</th>
-            <th>من</th>
-            <th>الطريقة</th>
-            <th>الرضا</th>
-            <th>الملاحظات</th>
-          </tr>
-        </thead>
-        <tbody id="log-body"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="table" id="log-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>الطالب</th>
+              <th>السامع</th>
+              <th>الصفحات</th>
+              <th>من</th>
+              <th>الطريقة</th>
+              <th>نقاط الطالب</th>
+              <th>نقاط السامع</th>
+              <th>الرضا</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody id="log-body"></tbody>
+        </table>
+      </div>
     </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="supabase-config.js" defer></script>
+  <script src="points.js" defer></script>
   <script src="stats.js" defer></script>
   <script src="session-log.js" defer></script>
   <script src="admin.js" defer></script>

@@ -22,6 +22,7 @@ create table if not exists public.sessions (
   satisfaction        text not null,
   notes               text,
   points_awarded      integer not null default 0,
+  listener_points_awarded integer not null default 0,
   created_at          timestamptz default now()
 );
 
@@ -31,12 +32,38 @@ create table if not exists public.settings (
 );
 
 insert into public.settings (key, value)
-values ('point_value', '{"value": 1}'::jsonb)
+values ('point_rules', '{"dailyCheckin": 5, "reciterPage": 2, "listenerPage": 1}'::jsonb)
 on conflict (key) do nothing;
+
+alter table public.sessions
+  add column if not exists listener_points_awarded integer not null default 0;
 
 create index if not exists sessions_student_id_idx on public.sessions (student_id);
 create index if not exists sessions_listener_student_id_idx on public.sessions (listener_student_id);
 create index if not exists sessions_created_at_idx on public.sessions (created_at);
+
+create or replace function public.has_student_session_between(
+  checked_student_id uuid,
+  range_start timestamptz,
+  range_end timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.sessions
+    where (student_id = checked_student_id or listener_student_id = checked_student_id)
+      and created_at >= range_start
+      and created_at < range_end
+  );
+$$;
+
+grant execute on function public.has_student_session_between(uuid, timestamptz, timestamptz)
+  to anon, authenticated;
 
 -- ═══════════════════════════════════════════════════════════════
 -- Row Level Security

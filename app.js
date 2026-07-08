@@ -133,20 +133,51 @@
       console.error("[Ta'ahud] Failed to load students", error);
       return [];
     }
-    return data || [];
+    return sortStudentsByCode(data || []);
   }
 
-  async function loadPointValue(client) {
+  function sortStudentsByCode(students) {
+    return students.slice().sort((a, b) => {
+      const aNumber = Number(a.code);
+      const bNumber = Number(b.code);
+      if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) return aNumber - bNumber;
+      return String(a.code).localeCompare(String(b.code), "ar", { numeric: true });
+    });
+  }
+
+  async function loadPointRules(client) {
     const { data, error } = await client
       .from("settings")
       .select("value")
-      .eq("key", "point_value")
-      .single();
+      .eq("key", "point_rules")
+      .maybeSingle();
     if (error || !data) {
-      console.warn("[Ta'ahud] Failed to load point value, defaulting to 0", error);
-      return 0;
+      console.warn("[Ta'ahud] Failed to load point rules, using defaults", error);
+      return window.TaahudPoints.normalizePointRules();
     }
-    return Number(data.value && data.value.value) || 0;
+    return window.TaahudPoints.normalizePointRules(data.value);
+  }
+
+  function localDayBounds(referenceDate) {
+    const ref = referenceDate || new Date();
+    const start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { start, end };
+  }
+
+  async function hasStudentSessionToday(client, studentId, referenceDate) {
+    const { start, end } = localDayBounds(referenceDate);
+    const { data, error } = await client.rpc("has_student_session_between", {
+      checked_student_id: studentId,
+      range_start: start.toISOString(),
+      range_end: end.toISOString(),
+    });
+    if (error) {
+      console.warn("[Ta'ahud] Failed to check daily streak status", error);
+      return false;
+    }
+    return Boolean(data);
   }
 
   function readListenerSelection(value) {
@@ -204,7 +235,7 @@
       });
     });
 
-    const pointValue = await loadPointValue(client);
+    const pointRules = await loadPointRules(client);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -230,6 +261,21 @@
       }
 
       const listenerSelection = readListenerSelection(listenerHidden.value);
+      const reciterAlreadyLoggedToday = await hasStudentSessionToday(client, studentHidden.value, new Date());
+      const listenerAlreadyLoggedToday =
+        listenerSelection.listenerType === "student"
+          ? listenerSelection.listenerStudentId === studentHidden.value
+            ? reciterAlreadyLoggedToday
+            : await hasStudentSessionToday(client, listenerSelection.listenerStudentId, new Date())
+          : false;
+      const sessionPoints = window.TaahudPoints.computeSessionPoints({
+        listenerType: listenerSelection.listenerType,
+        pages: pagesValue,
+        pointRules,
+        awardReciterDailyCheckin: !reciterAlreadyLoggedToday,
+        awardListenerDailyCheckin:
+          listenerSelection.listenerType === "student" && !listenerAlreadyLoggedToday,
+      });
       const payload = {
         student_id: studentHidden.value,
         listener_type: listenerSelection.listenerType,
@@ -239,10 +285,8 @@
         method: methodValue,
         satisfaction: satisfactionValue,
         notes: document.getElementById("notes").value || null,
-        points_awarded: window.TaahudPoints.computeSessionPoints({
-          listenerType: listenerSelection.listenerType,
-          pointValue,
-        }),
+        points_awarded: sessionPoints.reciterPoints,
+        listener_points_awarded: sessionPoints.listenerPoints,
       };
 
       const { error } = await client.from("sessions").insert(payload);
