@@ -33,7 +33,7 @@ window.TaahudAdmin = (function () {
   }
 
   function switchTab(name) {
-    document.querySelectorAll(".tabs > .tab").forEach((btn) => {
+    document.querySelectorAll(".tabs > .tab[data-tab]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === name);
     });
     ["roster", "settings", "stats", "log"].forEach((tab) => {
@@ -86,7 +86,14 @@ window.TaahudAdmin = (function () {
       toggleBtn.className = "btn btn-secondary";
       toggleBtn.textContent = student.active ? "إيقاف" : "تفعيل";
       toggleBtn.addEventListener("click", async () => {
-        await state.client.from("students").update({ active: !student.active }).eq("id", student.id);
+        const { error } = await state.client
+          .from("students")
+          .update({ active: !student.active })
+          .eq("id", student.id);
+        if (error) {
+          showToast("roster-toast", "حصل خطأ أثناء التحديث", "error");
+          return;
+        }
         await refreshRoster();
       });
       actionCell.appendChild(toggleBtn);
@@ -125,7 +132,7 @@ window.TaahudAdmin = (function () {
   }
 
   function wireTabs() {
-    document.querySelectorAll(".tabs > .tab").forEach((btn) => {
+    document.querySelectorAll(".tabs > .tab[data-tab]").forEach((btn) => {
       btn.addEventListener("click", () => switchTab(btn.dataset.tab));
     });
   }
@@ -139,6 +146,7 @@ window.TaahudAdmin = (function () {
       const { error } = await state.client.from("students").insert({ code, name, active: true });
       if (error) {
         console.error("[Ta'ahud] Failed to add student", error);
+        showToast("roster-toast", "حصل خطأ أثناء الإضافة", "error");
         return;
       }
       document.getElementById("new-code").value = "";
