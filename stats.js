@@ -67,6 +67,26 @@
     });
   }
 
+  function aggregateTotals(sessions, period, referenceDate) {
+    const { start, end } = periodBounds(period, referenceDate);
+    const inRange = sessions.filter((s) => sessionInRange(s, start, end));
+
+    const activeStudentIds = new Set();
+    inRange.forEach((s) => {
+      if (s.studentId) activeStudentIds.add(s.studentId);
+      if (s.listenerType === "student" && s.listenerStudentId) {
+        activeStudentIds.add(s.listenerStudentId);
+      }
+    });
+
+    return {
+      totalSessions: inRange.length,
+      totalPages: inRange.reduce((sum, s) => sum + (Number(s.pages) || 0), 0),
+      totalPoints: inRange.reduce((sum, s) => sum + (Number(s.pointsAwarded) || 0), 0),
+      activeStudents: activeStudentIds.size,
+    };
+  }
+
   function sortStats(stats, column, direction) {
     const dir = direction === "asc" ? 1 : -1;
     return stats.slice().sort((a, b) => {
@@ -79,5 +99,5 @@
     });
   }
 
-  return { periodBounds, sessionInRange, aggregateStudentStats, sortStats };
+  return { periodBounds, sessionInRange, aggregateStudentStats, sortStats, aggregateTotals };
 });

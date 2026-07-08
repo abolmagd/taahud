@@ -234,11 +234,19 @@ window.TaahudAdmin = (function () {
     });
   }
 
+  function renderStatsTotals(totals) {
+    document.getElementById("total-sessions").textContent = totals.totalSessions;
+    document.getElementById("total-pages").textContent = totals.totalPages;
+    document.getElementById("total-points").textContent = totals.totalPoints;
+    document.getElementById("total-active-students").textContent = totals.activeStudents;
+  }
+
   async function refreshStats() {
     const [students, sessions] = await Promise.all([loadActiveStudents(), loadSessionsForStats()]);
     const aggregated = window.TaahudStats.aggregateStudentStats(students, sessions, statsPeriod, new Date());
     const sorted = window.TaahudStats.sortStats(aggregated, statsSortColumn, statsSortDirection);
     renderStatsTable(sorted);
+    renderStatsTotals(window.TaahudStats.aggregateTotals(sessions, statsPeriod, new Date()));
   }
 
   function wireStatsControls() {

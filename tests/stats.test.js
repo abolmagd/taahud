@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { periodBounds, sessionInRange, aggregateStudentStats, sortStats } = require("../stats.js");
+const { periodBounds, sessionInRange, aggregateStudentStats, sortStats, aggregateTotals } = require("../stats.js");
 
 // ─── periodBounds ───
 
@@ -106,4 +106,38 @@ test("sortStats: sorts alphabetically by a string column, ascending", () => {
   ];
   const sorted = sortStats(stats, "name", "asc");
   assert.deepEqual(sorted.map((s) => s.studentId), ["b", "a"]);
+});
+
+// ─── aggregateTotals ───
+
+test("aggregateTotals: sums sessions/pages/points across everyone and counts distinct active students, excluding out-of-range sessions", () => {
+  const sessions = [
+    // s1 recites 4 pages to s2, within range
+    { studentId: "s1", listenerType: "student", listenerStudentId: "s2", pages: 4, pointsAwarded: 5, createdAt: "2026-07-08T10:00:00" },
+    // s2 recites 2 pages to s1, within range
+    { studentId: "s2", listenerType: "student", listenerStudentId: "s1", pages: 2, pointsAwarded: 5, createdAt: "2026-07-09T10:00:00" },
+    // s3 logs a listening-only session (no listener), within range
+    { studentId: "s3", listenerType: "listening_only", listenerStudentId: null, pages: 3, pointsAwarded: 0, createdAt: "2026-07-08T12:00:00" },
+    // s2 recites to s1 again, but the previous Friday (outside this week's range)
+    { studentId: "s2", listenerType: "student", listenerStudentId: "s1", pages: 10, pointsAwarded: 5, createdAt: "2026-07-03T09:00:00" },
+  ];
+
+  const result = aggregateTotals(sessions, "week", new Date(2026, 6, 8));
+
+  assert.deepEqual(result, {
+    totalSessions: 3, // the Friday session falls outside the week
+    totalPages: 9, // 4 + 2 + 3
+    totalPoints: 10, // 5 + 5
+    activeStudents: 3, // s1, s2, s3 all appear at least once in range
+  });
+});
+
+test("aggregateTotals: empty session list returns all zeros", () => {
+  const result = aggregateTotals([], "month", new Date(2026, 6, 8));
+  assert.deepEqual(result, {
+    totalSessions: 0,
+    totalPages: 0,
+    totalPoints: 0,
+    activeStudents: 0,
+  });
 });
