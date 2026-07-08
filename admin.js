@@ -270,7 +270,7 @@ window.TaahudAdmin = (function () {
       .from("sessions")
       .select(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
-          "student:student_id(code, name), listener:listener_student_id(code, name)"
+          "student:students!student_id(code, name), listener:students!listener_student_id(code, name)"
       )
       .order("created_at", { ascending: false });
     if (error) {
