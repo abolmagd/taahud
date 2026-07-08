@@ -34,6 +34,23 @@ test("periodBounds: unknown period throws", () => {
   assert.throws(() => periodBounds("year", new Date(2026, 6, 8)), /Unknown period/);
 });
 
+test("periodBounds: all spans the full representable date range", () => {
+  const { start, end } = periodBounds("all", new Date(2026, 6, 8));
+  assert.ok(start.getTime() < new Date(1900, 0, 1).getTime());
+  assert.ok(end.getTime() > new Date(2200, 0, 1).getTime());
+});
+
+test("aggregateStudentStats: period 'all' includes sessions from any date", () => {
+  const students = [{ id: "s1", code: "001", name: "Ahmed" }];
+  const sessions = [
+    { studentId: "s1", listenerType: "student", listenerStudentId: "s1", pages: 2, pointsAwarded: 1, createdAt: "2020-01-01T00:00:00" },
+    { studentId: "s1", listenerType: "student", listenerStudentId: "s1", pages: 3, pointsAwarded: 1, createdAt: "2030-01-01T00:00:00" },
+  ];
+  const result = aggregateStudentStats(students, sessions, "all", new Date(2026, 6, 8));
+  assert.equal(result[0].pagesRecited, 5);
+  assert.equal(result[0].sessionsRecited, 2);
+});
+
 // ─── sessionInRange ───
 
 test("sessionInRange: inside, before-start, and exactly-at-end boundary", () => {

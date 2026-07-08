@@ -39,6 +39,7 @@ window.TaahudAdmin = (function () {
     ["roster", "settings", "stats", "log"].forEach((tab) => {
       document.getElementById("tab-" + tab).hidden = tab !== name;
     });
+    document.getElementById("tab-student-detail").hidden = true;
     if (name === "settings") refreshSettingsForm();
     if (name === "stats") refreshStats();
     if (name === "log") {
@@ -88,6 +89,15 @@ window.TaahudAdmin = (function () {
       statusCell.textContent = student.active ? "نشط" : "موقوف";
 
       const actionCell = document.createElement("td");
+      actionCell.style.display = "flex";
+      actionCell.style.gap = "8px";
+
+      const detailBtn = document.createElement("button");
+      detailBtn.className = "btn btn-secondary";
+      detailBtn.textContent = "عرض الإحصائيات";
+      detailBtn.addEventListener("click", () => showStudentDetail(student));
+      actionCell.appendChild(detailBtn);
+
       const toggleBtn = document.createElement("button");
       toggleBtn.className = "btn btn-secondary";
       toggleBtn.textContent = student.active ? "إيقاف" : "تفعيل";
@@ -112,10 +122,29 @@ window.TaahudAdmin = (function () {
     });
   }
 
+  let currentRoster = [];
+
+  function applyRosterFilter() {
+    const query = document.getElementById("roster-search").value.trim().toLowerCase();
+    if (!query) {
+      renderRoster(currentRoster);
+      return;
+    }
+    renderRoster(
+      currentRoster.filter(
+        (s) => s.code.toLowerCase().includes(query) || s.name.toLowerCase().includes(query)
+      )
+    );
+  }
+
+  function wireRosterSearch() {
+    document.getElementById("roster-search").addEventListener("input", applyRosterFilter);
+  }
+
   async function refreshRoster() {
-    const students = await loadAllStudents();
-    renderRoster(students);
-    return students;
+    currentRoster = await loadAllStudents();
+    applyRosterFilter();
+    return currentRoster;
   }
 
   function wireLogin() {
@@ -279,6 +308,7 @@ window.TaahudAdmin = (function () {
       .from("sessions")
       .select(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
+          "points_awarded, surah_range, satisfaction, notes, " +
           "student:students!student_id(code, name), listener:students!listener_student_id(code, name)"
       )
       .order("created_at", { ascending: false });
@@ -289,10 +319,15 @@ window.TaahudAdmin = (function () {
     return data.map((row) => ({
       id: row.id,
       studentId: row.student_id,
+      listenerType: row.listener_type,
       listenerStudentId: row.listener_student_id,
       method: row.method,
       createdAt: row.created_at,
       pages: row.pages,
+      pointsAwarded: row.points_awarded,
+      surahRange: row.surah_range,
+      satisfaction: row.satisfaction,
+      notes: row.notes,
       studentLabel: row.student ? row.student.code + " — " + row.student.name : "",
       listenerLabel:
         row.listener_type === "outside"
@@ -310,13 +345,20 @@ window.TaahudAdmin = (function () {
     body.innerHTML = "";
     rows.forEach((row) => {
       const tr = document.createElement("tr");
-      [new Date(row.createdAt).toLocaleString("ar-EG"), row.studentLabel, row.listenerLabel, row.pages, row.method].forEach(
-        (value) => {
-          const td = document.createElement("td");
-          td.textContent = value;
-          tr.appendChild(td);
-        }
-      );
+      [
+        new Date(row.createdAt).toLocaleString("ar-EG"),
+        row.studentLabel,
+        row.listenerLabel,
+        row.pages,
+        row.surahRange || "",
+        row.method,
+        row.satisfaction || "",
+        row.notes || "",
+      ].forEach((value) => {
+        const td = document.createElement("td");
+        td.textContent = value;
+        tr.appendChild(td);
+      });
       body.appendChild(tr);
     });
   }
@@ -350,6 +392,75 @@ window.TaahudAdmin = (function () {
     document.getElementById("log-filter-method").addEventListener("change", applyLogFilters);
   }
 
+  // Sessions where the given student appears either as reciter or as
+  // listener, labeled with their role and the counterpart's name.
+  // Order follows loadSessionsForLog's created_at-descending fetch.
+  function sessionsForStudent(student, sessions) {
+    return sessions
+      .filter((s) => s.studentId === student.id || (s.listenerType === "student" && s.listenerStudentId === student.id))
+      .map((s) => {
+        const isReciter = s.studentId === student.id;
+        return {
+          createdAt: s.createdAt,
+          role: isReciter ? "مُسمِّع" : "سامع",
+          counterpart: isReciter ? s.listenerLabel : s.studentLabel,
+          pages: s.pages,
+          surahRange: s.surahRange,
+          method: s.method,
+          satisfaction: s.satisfaction,
+          notes: s.notes,
+        };
+      });
+  }
+
+  function renderStudentDetailTable(rows) {
+    const body = document.getElementById("student-detail-body");
+    body.innerHTML = "";
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      [
+        new Date(row.createdAt).toLocaleString("ar-EG"),
+        row.role,
+        row.counterpart,
+        row.pages,
+        row.surahRange || "",
+        row.method,
+        row.satisfaction || "",
+        row.notes || "",
+      ].forEach((value) => {
+        const td = document.createElement("td");
+        td.textContent = value;
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  async function showStudentDetail(student) {
+    document.getElementById("tab-roster").hidden = true;
+    document.getElementById("tab-student-detail").hidden = false;
+    document.getElementById("student-detail-title").textContent = student.code + " — " + student.name;
+
+    const sessions = await loadSessionsForLog();
+    const stats = window.TaahudStats.aggregateStudentStats([student], sessions, "all", new Date())[0];
+    document.getElementById("student-detail-sessions-recited").textContent = stats.sessionsRecited;
+    document.getElementById("student-detail-pages-recited").textContent = stats.pagesRecited;
+    document.getElementById("student-detail-sessions-listened").textContent = stats.sessionsListened;
+    document.getElementById("student-detail-pages-listened").textContent = stats.pagesListened;
+    document.getElementById("student-detail-points").textContent = stats.pointsEarned;
+
+    renderStudentDetailTable(sessionsForStudent(student, sessions));
+  }
+
+  function hideStudentDetail() {
+    document.getElementById("tab-student-detail").hidden = true;
+    document.getElementById("tab-roster").hidden = false;
+  }
+
+  function wireStudentDetail() {
+    document.getElementById("student-detail-back").addEventListener("click", hideStudentDetail);
+  }
+
   async function init() {
     const client = getClient();
     if (!client) return;
@@ -358,6 +469,8 @@ window.TaahudAdmin = (function () {
     wireLogin();
     wireTabs();
     wireAddStudent();
+    wireRosterSearch();
+    wireStudentDetail();
     wireSettings();
     wireStatsControls();
     wireLogControls();

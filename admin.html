@@ -55,6 +55,10 @@
         </div>
         <button type="submit" class="btn btn-primary">إضافة</button>
       </form>
+      <div class="form-group">
+        <label for="roster-search">البحث بالكود أو الاسم</label>
+        <input type="text" id="roster-search" autocomplete="off" placeholder="مثال: 042" />
+      </div>
       <table class="table" id="roster-table">
         <thead>
           <tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th></th></tr>
@@ -62,6 +66,48 @@
         <tbody id="roster-body"></tbody>
       </table>
       <div id="roster-toast" class="toast" hidden></div>
+    </section>
+
+    <section class="card" id="tab-student-detail" hidden>
+      <button type="button" class="btn btn-secondary" id="student-detail-back">→ رجوع إلى الطلاب</button>
+      <h2 id="student-detail-title"></h2>
+      <div class="stat-tiles" id="student-detail-tiles">
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-detail-sessions-recited">0</span>
+          <span class="stat-tile-label">جلسات التسميع</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-detail-pages-recited">0</span>
+          <span class="stat-tile-label">صفحات مسمّعة</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-detail-sessions-listened">0</span>
+          <span class="stat-tile-label">جلسات الاستماع</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-detail-pages-listened">0</span>
+          <span class="stat-tile-label">صفحات مستمع لها</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-detail-points">0</span>
+          <span class="stat-tile-label">النقاط</span>
+        </div>
+      </div>
+      <table class="table" id="student-detail-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>الدور</th>
+            <th>الطرف الآخر</th>
+            <th>الصفحات</th>
+            <th>من</th>
+            <th>الطريقة</th>
+            <th>الرضا</th>
+            <th>الملاحظات</th>
+          </tr>
+        </thead>
+        <tbody id="student-detail-body"></tbody>
+      </table>
     </section>
 
     <section class="card" id="tab-settings" hidden>
@@ -133,7 +179,16 @@
       </div>
       <table class="table" id="log-table">
         <thead>
-          <tr><th>التاريخ</th><th>الطالب</th><th>السامع</th><th>الصفحات</th><th>الطريقة</th></tr>
+          <tr>
+            <th>التاريخ</th>
+            <th>الطالب</th>
+            <th>السامع</th>
+            <th>الصفحات</th>
+            <th>من</th>
+            <th>الطريقة</th>
+            <th>الرضا</th>
+            <th>الملاحظات</th>
+          </tr>
         </thead>
         <tbody id="log-body"></tbody>
       </table>

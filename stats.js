@@ -37,6 +37,9 @@
       const end = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
       return { start, end };
     }
+    if (period === "all") {
+      return { start: new Date(-8640000000000000), end: new Date(8640000000000000) };
+    }
     throw new Error("Unknown period: " + period);
   }
 
