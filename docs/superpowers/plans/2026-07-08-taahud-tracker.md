@@ -1071,8 +1071,8 @@ const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 - [ ] **Step 3: Verify the SQL is syntactically well-formed**
 
-Run: `node -e "const s = require('fs').readFileSync('supabase-schema.sql','utf8'); if ((s.match(/create policy/g)||[]).length !== 8) throw new Error('expected 8 policies'); console.log('OK: schema has', (s.match(/create table/g)||[]).length, 'tables and 8 policies');"`
-Expected: `OK: schema has 3 tables and 8 policies`
+Run: `node -e "const s = require('fs').readFileSync('supabase-schema.sql','utf8'); if ((s.match(/create policy/g)||[]).length !== 7) throw new Error('expected 7 policies'); console.log('OK: schema has', (s.match(/create table/g)||[]).length, 'tables and 7 policies');"`
+Expected: `OK: schema has 3 tables and 7 policies`
 
 - [ ] **Step 4: Manual step — create the real Supabase project (you, the user, do this once)**
 
