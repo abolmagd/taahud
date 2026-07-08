@@ -97,7 +97,7 @@ window.TaahudAdmin = (function () {
           .update({ active: !student.active })
           .eq("id", student.id);
         if (error) {
-          showToast("roster-toast", "حصل خطأ أثناء التحديث", "error");
+          showToast("roster-toast", "حدث خطأ أثناء التحديث", "error");
           return;
         }
         await refreshRoster();
@@ -153,7 +153,7 @@ window.TaahudAdmin = (function () {
       const { error } = await state.client.from("students").insert({ code, name, active: true });
       if (error) {
         console.error("[Ta'ahud] Failed to add student", error);
-        showToast("roster-toast", "حصل خطأ أثناء الإضافة", "error");
+        showToast("roster-toast", "حدث خطأ أثناء الإضافة", "error");
         return;
       }
       document.getElementById("new-code").value = "";
@@ -188,7 +188,7 @@ window.TaahudAdmin = (function () {
       event.preventDefault();
       const newValue = Number(document.getElementById("point-value").value);
       const ok = await savePointValue(newValue);
-      showToast("settings-toast", ok ? "تم الحفظ" : "حصل خطأ أثناء الحفظ", ok ? "success" : "error");
+      showToast("settings-toast", ok ? "تم الحفظ" : "حدث خطأ أثناء الحفظ", ok ? "success" : "error");
     });
   }
 

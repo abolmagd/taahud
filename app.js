@@ -24,7 +24,7 @@
   // list plus explicit valid/invalid feedback (per the design: the
   // student searches for their code rather than scrolling a long
   // dropdown, and is told clearly if what they typed doesn't exist).
-  function setupCodeSearch({ inputEl, hiddenEl, suggestionsEl, feedbackEl, items }) {
+  function setupCodeSearch({ inputEl, hiddenEl, suggestionsEl, feedbackEl, items, onClear }) {
     function showFeedback(message, kind) {
       if (!message) {
         feedbackEl.hidden = true;
@@ -83,7 +83,7 @@
         showFeedback("", "ok");
       } else {
         hideSuggestions();
-        showFeedback("مفيش كود أو اسم بالشكل ده", "error");
+        showFeedback("لا يوجد كود أو اسم مطابق لما أدخلته", "error");
       }
     });
 
@@ -97,8 +97,20 @@
           showFeedback("", "ok");
           return;
         }
-        showFeedback("مفيش كود أو اسم بالشكل ده", "error");
+        showFeedback("لا يوجد كود أو اسم مطابق لما أدخلته", "error");
       }, 150);
+    });
+
+    // Re-focusing a field that already holds a resolved selection (a
+    // matched student, or a quick-selected option) clears it instantly
+    // so the student can search again without deleting the old text
+    // by hand.
+    inputEl.addEventListener("focus", () => {
+      if (!hiddenEl.value) return;
+      hiddenEl.value = "";
+      inputEl.value = "";
+      showFeedback("", "ok");
+      if (onClear) onClear();
     });
 
     return {
@@ -163,12 +175,19 @@
       items,
     });
 
+    function deactivateListenerChips() {
+      document.querySelectorAll(".code-search-quick-options .chip").forEach((btn) => {
+        btn.classList.remove("active");
+      });
+    }
+
     const listenerSearch = setupCodeSearch({
       inputEl: document.getElementById("listener-code-input"),
       hiddenEl: listenerHidden,
       suggestionsEl: document.getElementById("listener-code-suggestions"),
       feedbackEl: document.getElementById("listener-code-feedback"),
       items,
+      onClear: deactivateListenerChips,
     });
 
     const listenerQuickLabels = {
@@ -206,7 +225,7 @@
         !satisfactionValue
       ) {
         submitBtn.disabled = false;
-        showToast("من فضلك املأ كل الحقول المطلوبة", "error");
+        showToast("يرجى تعبئة جميع الحقول المطلوبة", "error");
         return;
       }
 
@@ -231,7 +250,7 @@
 
       if (error) {
         console.error("[Ta'ahud] Failed to save session", error);
-        showToast("حصل خطأ أثناء التسجيل، حاول تاني", "error");
+        showToast("حدث خطأ أثناء التسجيل، يرجى المحاولة مرة أخرى", "error");
         return;
       }
 
@@ -245,9 +264,7 @@
         el.hidden = true;
         el.innerHTML = "";
       });
-      document.querySelectorAll(".code-search-quick-options .chip").forEach((btn) => {
-        btn.classList.remove("active");
-      });
+      deactivateListenerChips();
     });
   }
 
