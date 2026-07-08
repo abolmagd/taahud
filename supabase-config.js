@@ -1,8 +1,8 @@
 // ─── Supabase ───
 // Fill these in with your project's values from Supabase Dashboard →
 // Project Settings → API, after running supabase-schema.sql there.
-const SUPABASE_URL      = 'YOUR_SUPABASE_PROJECT_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL      = 'https://gcxdbjbeorrmmnfxxweh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Pkbc7HmJYdxWqAqdj_EHqw_Z9tAadZg';
 
 (function () {
   if (typeof window.supabase === 'undefined') {
