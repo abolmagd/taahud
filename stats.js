@@ -53,35 +53,105 @@
     return sessions.filter((s) => sessionInRange(s, start, end));
   }
 
-  function sessionPoints(session) {
-    return (Number(session.pointsAwarded) || 0) + (Number(session.listenerPointsAwarded) || 0);
+  function normalizePointRules(pointRules) {
+    if (!pointRules) return null;
+    return {
+      dailyCheckin: positiveInteger(pointRules.dailyCheckin, 5),
+      reciterPage: positiveInteger(pointRules.reciterPage, 2),
+      listenerPage: positiveInteger(pointRules.listenerPage, 1),
+    };
   }
 
-  function aggregateStudentStats(students, sessions, period, referenceDate) {
+  function positiveInteger(value, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return fallback;
+    return Math.trunc(number);
+  }
+
+  function localDayKey(value) {
+    const date = new Date(value);
+    return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+  }
+
+  function sessionTimestamp(session) {
+    const timestamp = new Date(session.createdAt).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  function withEffectivePoints(sessions, pointRules) {
+    const rules = normalizePointRules(pointRules);
+    if (!rules) {
+      return sessions.map((session) => ({
+        session,
+        pointsAwarded: Number(session.pointsAwarded) || 0,
+        listenerPointsAwarded: Number(session.listenerPointsAwarded) || 0,
+      }));
+    }
+
+    const dailyKeys = new Set();
+    const ordered = sessions
+      .map((session, index) => ({ session, index }))
+      .sort((a, b) => sessionTimestamp(a.session) - sessionTimestamp(b.session) || a.index - b.index);
+    const effectiveByIndex = new Map();
+
+    ordered.forEach(({ session, index }) => {
+      const pages = Math.max(0, Number(session.pages) || 0);
+      const dayKey = localDayKey(session.createdAt);
+      const reciterKey = session.studentId + "|" + dayKey;
+      const awardReciterDaily = session.studentId && !dailyKeys.has(reciterKey);
+      if (session.studentId) dailyKeys.add(reciterKey);
+
+      let listenerPointsAwarded = 0;
+      if (session.listenerType === "student" && session.listenerStudentId) {
+        const listenerKey = session.listenerStudentId + "|" + dayKey;
+        const awardListenerDaily = !dailyKeys.has(listenerKey);
+        dailyKeys.add(listenerKey);
+        listenerPointsAwarded =
+          (awardListenerDaily ? rules.dailyCheckin : 0) + Math.trunc(pages * rules.listenerPage);
+      }
+
+      effectiveByIndex.set(index, {
+        session,
+        pointsAwarded: (awardReciterDaily ? rules.dailyCheckin : 0) + Math.trunc(pages * rules.reciterPage),
+        listenerPointsAwarded,
+      });
+    });
+
+    return sessions.map((session, index) => effectiveByIndex.get(index));
+  }
+
+  function effectiveSessionPoints(session, pointRules) {
+    const [effective] = withEffectivePoints([session], pointRules);
+    return effective.pointsAwarded + effective.listenerPointsAwarded;
+  }
+
+  function aggregateStudentStats(students, sessions, period, referenceDate, pointRules) {
     const inRange = sessionsInPeriod(sessions, period, referenceDate);
+    const effectiveSessions = withEffectivePoints(inRange, pointRules);
 
     return students.map((student) => {
-      const recited = inRange.filter((s) => s.studentId === student.id);
-      const listened = inRange.filter(
-        (s) => s.listenerType === "student" && s.listenerStudentId === student.id
+      const recited = effectiveSessions.filter(({ session }) => session.studentId === student.id);
+      const listened = effectiveSessions.filter(
+        ({ session }) => session.listenerType === "student" && session.listenerStudentId === student.id
       );
       return {
         studentId: student.id,
         code: student.code,
         name: student.name,
-        pagesRecited: recited.reduce((sum, s) => sum + (Number(s.pages) || 0), 0),
+        pagesRecited: recited.reduce((sum, item) => sum + (Number(item.session.pages) || 0), 0),
         sessionsRecited: recited.length,
-        pagesListened: listened.reduce((sum, s) => sum + (Number(s.pages) || 0), 0),
+        pagesListened: listened.reduce((sum, item) => sum + (Number(item.session.pages) || 0), 0),
         sessionsListened: listened.length,
         pointsEarned:
-          recited.reduce((sum, s) => sum + (Number(s.pointsAwarded) || 0), 0) +
-          listened.reduce((sum, s) => sum + (Number(s.listenerPointsAwarded) || 0), 0),
+          recited.reduce((sum, item) => sum + item.pointsAwarded, 0) +
+          listened.reduce((sum, item) => sum + item.listenerPointsAwarded, 0),
       };
     });
   }
 
-  function aggregateTotals(sessions, period, referenceDate) {
+  function aggregateTotals(sessions, period, referenceDate, pointRules) {
     const inRange = sessionsInPeriod(sessions, period, referenceDate);
+    const effectiveSessions = withEffectivePoints(inRange, pointRules);
 
     const activeStudentIds = new Set();
     let studentListenerSessions = 0;
@@ -100,8 +170,8 @@
     });
 
     const totalPages = inRange.reduce((sum, s) => sum + (Number(s.pages) || 0), 0);
-    const totalReciterPoints = inRange.reduce((sum, s) => sum + (Number(s.pointsAwarded) || 0), 0);
-    const totalListenerPoints = inRange.reduce((sum, s) => sum + (Number(s.listenerPointsAwarded) || 0), 0);
+    const totalReciterPoints = effectiveSessions.reduce((sum, item) => sum + item.pointsAwarded, 0);
+    const totalListenerPoints = effectiveSessions.reduce((sum, item) => sum + item.listenerPointsAwarded, 0);
 
     return {
       totalSessions: inRange.length,
@@ -117,28 +187,30 @@
     };
   }
 
-  function aggregateByField(sessions, period, referenceDate, field, fallback) {
+  function aggregateByField(sessions, period, referenceDate, field, fallback, pointRules) {
     const inRange = sessionsInPeriod(sessions, period, referenceDate);
+    const effectiveSessions = withEffectivePoints(inRange, pointRules);
     const groups = new Map();
-    inRange.forEach((session) => {
+    effectiveSessions.forEach((item) => {
+      const session = item.session;
       const key = session[field] || fallback;
       const current = groups.get(key) || { label: key, sessions: 0, pages: 0, points: 0 };
       current.sessions += 1;
       current.pages += Number(session.pages) || 0;
-      current.points += sessionPoints(session);
+      current.points += item.pointsAwarded + item.listenerPointsAwarded;
       groups.set(key, current);
     });
     return Array.from(groups.values()).sort((a, b) => b.sessions - a.sessions || b.pages - a.pages);
   }
 
-  function topStudents(students, sessions, period, referenceDate, limit) {
-    return sortStats(aggregateStudentStats(students, sessions, period, referenceDate), "pointsEarned", "desc")
+  function topStudents(students, sessions, period, referenceDate, limit, pointRules) {
+    return sortStats(aggregateStudentStats(students, sessions, period, referenceDate, pointRules), "pointsEarned", "desc")
       .filter((student) => student.sessionsRecited || student.sessionsListened || student.pointsEarned)
       .slice(0, limit || 5);
   }
 
-  function inactiveStudents(students, sessions, period, referenceDate, limit) {
-    return aggregateStudentStats(students, sessions, period, referenceDate)
+  function inactiveStudents(students, sessions, period, referenceDate, limit, pointRules) {
+    return aggregateStudentStats(students, sessions, period, referenceDate, pointRules)
       .filter((student) => !student.sessionsRecited && !student.sessionsListened)
       .slice(0, limit || 8);
   }
@@ -159,6 +231,8 @@
     periodBounds,
     sessionInRange,
     sessionsInPeriod,
+    withEffectivePoints,
+    effectiveSessionPoints,
     aggregateStudentStats,
     sortStats,
     aggregateTotals,

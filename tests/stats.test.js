@@ -244,6 +244,68 @@ test("aggregateTotals: empty session list returns all zeros", () => {
   });
 });
 
+test("aggregateTotals: can recompute points from current point rules", () => {
+  const sessions = [
+    {
+      studentId: "s1",
+      listenerType: "student",
+      listenerStudentId: "s2",
+      pages: 4,
+      pointsAwarded: 13,
+      listenerPointsAwarded: 9,
+      createdAt: "2026-07-08T10:00:00",
+    },
+    {
+      studentId: "s1",
+      listenerType: "student",
+      listenerStudentId: "s2",
+      pages: 2,
+      pointsAwarded: 4,
+      listenerPointsAwarded: 2,
+      createdAt: "2026-07-08T11:00:00",
+    },
+  ];
+
+  const result = aggregateTotals(sessions, "day", new Date(2026, 6, 8), {
+    dailyCheckin: 5,
+    reciterPage: 4,
+    listenerPage: 1,
+  });
+
+  assert.equal(result.totalReciterPoints, 29); // first session: 5 + 4*4, second: 2*4
+  assert.equal(result.totalListenerPoints, 11); // first session: 5 + 4*1, second: 2*1
+  assert.equal(result.totalPoints, 40);
+});
+
+test("aggregateStudentStats: recomputed point rules update rankings without changing pages", () => {
+  const students = [
+    { id: "s1", code: "1", name: "Ahmed" },
+    { id: "s2", code: "2", name: "Sara" },
+  ];
+  const sessions = [
+    {
+      studentId: "s1",
+      listenerType: "student",
+      listenerStudentId: "s2",
+      pages: 3,
+      pointsAwarded: 1,
+      listenerPointsAwarded: 1,
+      createdAt: "2026-07-08T10:00:00",
+    },
+  ];
+
+  const result = aggregateStudentStats(students, sessions, "day", new Date(2026, 6, 8), {
+    dailyCheckin: 5,
+    reciterPage: 4,
+    listenerPage: 2,
+  });
+
+  assert.deepEqual(result.map((row) => [row.studentId, row.pagesRecited, row.pagesListened, row.pointsEarned]), [
+    ["s1", 3, 0, 17],
+    ["s2", 0, 3, 11],
+  ]);
+});
+
 test("aggregateByField: groups sessions by a chosen dimension", () => {
   const sessions = [
     { method: "واتس", pages: 2, pointsAwarded: 9, listenerPointsAwarded: 7, createdAt: "2026-07-08T10:00:00" },

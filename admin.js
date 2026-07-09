@@ -146,6 +146,7 @@ window.TaahudAdmin = (function () {
   }
 
   let currentRoster = [];
+  let currentDetailStudent = null;
 
   function applyRosterFilter() {
     const query = document.getElementById("roster-search").value.trim().toLowerCase();
@@ -249,11 +250,36 @@ window.TaahudAdmin = (function () {
     return !error;
   }
 
+  function applyCurrentPointRules(sessions, pointRules) {
+    return window.TaahudStats.withEffectivePoints(sessions, pointRules).map((item) =>
+      Object.assign({}, item.session, {
+        pointsAwarded: item.pointsAwarded,
+        listenerPointsAwarded: item.listenerPointsAwarded,
+      })
+    );
+  }
+
+  function activeTabName() {
+    const active = document.querySelector(".tabs > .tab[data-tab].active");
+    return active ? active.dataset.tab : "overview";
+  }
+
+  async function refreshActivePanels() {
+    const tab = activeTabName();
+    if (tab === "overview") await refreshOverview();
+    if (tab === "stats") await refreshStats();
+    if (tab === "log") await refreshLog();
+    if (!document.getElementById("tab-student-detail").hidden && currentDetailStudent) {
+      await showStudentDetail(currentDetailStudent);
+    }
+  }
+
   function wireSettings() {
     document.getElementById("settings-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const ok = await savePointRules(getPointRulesFromForm());
       showToast("settings-toast", ok ? "تم الحفظ" : "حدث خطأ أثناء الحفظ", ok ? "success" : "error");
+      if (ok) await refreshActivePanels();
     });
   }
 
@@ -314,7 +340,12 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshStats() {
-    const [students, sessions] = await Promise.all([loadActiveStudents(), loadSessionsForStats()]);
+    const [students, rawSessions, pointRules] = await Promise.all([
+      loadActiveStudents(),
+      loadSessionsForStats(),
+      loadPointRules(),
+    ]);
+    const sessions = applyCurrentPointRules(rawSessions, pointRules);
     const aggregated = window.TaahudStats.aggregateStudentStats(students, sessions, statsPeriod, new Date());
     const sorted = window.TaahudStats.sortStats(aggregated, statsSortColumn, statsSortDirection);
     renderStatsTable(sorted);
@@ -535,7 +566,8 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshOverview() {
-    const [students, sessions] = await Promise.all([loadAllStudents(), loadSessionsForLog()]);
+    const [students, rawSessions, pointRules] = await Promise.all([loadAllStudents(), loadSessionsForLog(), loadPointRules()]);
+    const sessions = applyCurrentPointRules(rawSessions, pointRules);
     const activeStudents = students.filter((student) => student.active);
     const now = new Date();
     const todayTotals = window.TaahudStats.aggregateTotals(sessions, "day", now);
@@ -594,7 +626,8 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshLog() {
-    allLogSessions = await loadSessionsForLog();
+    const [sessions, pointRules] = await Promise.all([loadSessionsForLog(), loadPointRules()]);
+    allLogSessions = applyCurrentPointRules(sessions, pointRules);
     applyLogFilters();
   }
 
@@ -662,11 +695,13 @@ window.TaahudAdmin = (function () {
   }
 
   async function showStudentDetail(student) {
+    currentDetailStudent = student;
     document.getElementById("tab-roster").hidden = true;
     document.getElementById("tab-student-detail").hidden = false;
     document.getElementById("student-detail-title").textContent = student.code + " — " + student.name;
 
-    const sessions = await loadSessionsForLog();
+    const [rawSessions, pointRules] = await Promise.all([loadSessionsForLog(), loadPointRules()]);
+    const sessions = applyCurrentPointRules(rawSessions, pointRules);
     const stats = window.TaahudStats.aggregateStudentStats([student], sessions, "all", new Date())[0];
     document.getElementById("student-detail-sessions-recited").textContent = stats.sessionsRecited;
     document.getElementById("student-detail-pages-recited").textContent = stats.pagesRecited;
@@ -678,6 +713,7 @@ window.TaahudAdmin = (function () {
   }
 
   function hideStudentDetail() {
+    currentDetailStudent = null;
     document.getElementById("tab-student-detail").hidden = true;
     document.getElementById("tab-roster").hidden = false;
   }
