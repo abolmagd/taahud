@@ -2,7 +2,12 @@
 
 window.TaahudAdmin = (function () {
   const ADMIN_EMAIL = "admin@taahud.local";
+  const LIVE_REFRESH_DEBOUNCE_MS = 350;
+  const LIVE_POLL_INTERVAL_MS = 15000;
   const state = { client: null };
+  let adminChangesChannel = null;
+  let liveRefreshTimer = null;
+  let pollingTimer = null;
 
   function getClient() {
     if (!window._supabase) {
@@ -182,10 +187,12 @@ window.TaahudAdmin = (function () {
         return;
       }
       showDashboard();
-      await refreshRoster();
+      startAdminLiveUpdates();
+      await refreshOverview();
     });
 
     document.getElementById("logout-btn").addEventListener("click", async () => {
+      stopAdminLiveUpdates();
       await state.client.auth.signOut();
       showLogin();
     });
@@ -267,11 +274,68 @@ window.TaahudAdmin = (function () {
   async function refreshActivePanels() {
     const tab = activeTabName();
     if (tab === "overview") await refreshOverview();
+    if (tab === "roster") await refreshRoster();
     if (tab === "stats") await refreshStats();
-    if (tab === "log") await refreshLog();
+    if (tab === "log") {
+      await populateLogStudentFilter();
+      await refreshLog();
+    }
     if (!document.getElementById("tab-student-detail").hidden && currentDetailStudent) {
       await showStudentDetail(currentDetailStudent);
     }
+  }
+
+  function scheduleLiveRefresh() {
+    if (document.getElementById("dashboard-view").hidden) return;
+    clearTimeout(liveRefreshTimer);
+    liveRefreshTimer = setTimeout(() => {
+      refreshActivePanels().catch((error) => {
+        console.error("[Ta'ahud] Failed to refresh live admin panels", error);
+      });
+    }, LIVE_REFRESH_DEBOUNCE_MS);
+  }
+
+  function subscribeAdminLiveUpdates() {
+    if (adminChangesChannel || !state.client.channel) return;
+
+    adminChangesChannel = state.client
+      .channel("taahud-admin-live-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, scheduleLiveRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "students" }, scheduleLiveRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, scheduleLiveRefresh)
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[Ta'ahud] Realtime admin updates are not connected:", status);
+        }
+      });
+  }
+
+  function unsubscribeAdminLiveUpdates() {
+    if (!adminChangesChannel) return;
+    state.client.removeChannel(adminChangesChannel);
+    adminChangesChannel = null;
+  }
+
+  function startLivePollingFallback() {
+    if (pollingTimer) return;
+    pollingTimer = setInterval(scheduleLiveRefresh, LIVE_POLL_INTERVAL_MS);
+  }
+
+  function stopLivePollingFallback() {
+    clearInterval(pollingTimer);
+    pollingTimer = null;
+  }
+
+  function startAdminLiveUpdates() {
+    subscribeAdminLiveUpdates();
+    startLivePollingFallback();
+  }
+
+  function stopAdminLiveUpdates() {
+    clearTimeout(liveRefreshTimer);
+    liveRefreshTimer = null;
+    stopLivePollingFallback();
+    unsubscribeAdminLiveUpdates();
   }
 
   function wireSettings() {
@@ -735,6 +799,7 @@ window.TaahudAdmin = (function () {
     wireSettings();
     wireStatsControls();
     wireLogControls();
+    window.addEventListener("beforeunload", stopAdminLiveUpdates);
 
     const {
       data: { session },
@@ -742,6 +807,7 @@ window.TaahudAdmin = (function () {
 
     if (session) {
       showDashboard();
+      startAdminLiveUpdates();
       await refreshOverview();
     } else {
       showLogin();
