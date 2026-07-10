@@ -88,7 +88,8 @@ body {
   margin: 0 0 4px;
 }
 
-.brand-word {
+.brand-word,
+.brand-text {
   font-family: var(--font-brand);
   font-weight: 800;
 }

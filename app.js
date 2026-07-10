@@ -47,6 +47,7 @@
       const opt = document.createElement("option");
       opt.value = option.value;
       opt.textContent = option.label;
+      if (option.brandText) opt.className = "brand-text";
       selectEl.appendChild(opt);
     });
 
@@ -119,7 +120,7 @@
     const form = document.getElementById("checkin-form");
     const submitBtn = document.getElementById("submit-btn");
     const listenerQuickOptions = [
-      { value: "__outside__", label: "شخص آخر خارج تعاهُد" },
+      { value: "__outside__", label: "شخص آخر خارج تعاهُد", brandText: true },
       { value: "__listening_only__", label: "وِرد استماع" },
     ];
 

@@ -489,6 +489,12 @@ window.TaahudAdmin = (function () {
     return number.toFixed(1);
   }
 
+  function applyBrandTextIfNeeded(element, value) {
+    if (String(value).includes("تعاه")) {
+      element.classList.add("brand-text");
+    }
+  }
+
   function shortDate(value) {
     return new Date(value).toLocaleDateString("ar-EG", { day: "numeric", month: "short" });
   }
@@ -676,6 +682,7 @@ window.TaahudAdmin = (function () {
       ].forEach((value) => {
         const td = document.createElement("td");
         td.textContent = value;
+        applyBrandTextIfNeeded(td, value);
         tr.appendChild(td);
       });
       body.appendChild(tr);
@@ -752,6 +759,7 @@ window.TaahudAdmin = (function () {
       ].forEach((value) => {
         const td = document.createElement("td");
         td.textContent = value;
+        applyBrandTextIfNeeded(td, value);
         tr.appendChild(td);
       });
       body.appendChild(tr);
