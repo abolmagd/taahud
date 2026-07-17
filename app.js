@@ -7,6 +7,9 @@
     password: "",
     student: null,
     students: [],
+    sessions: [],
+    statsPeriod: "day",
+    recordsPeriod: "day",
   };
 
   function getClient() {
@@ -127,31 +130,10 @@
     return year + "-" + month + "-" + day;
   }
 
-  function localDayKey(value) {
-    const date = new Date(value);
-    return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
-  }
-
   function previousDate(value) {
     const date = value ? new Date(value) : new Date();
     date.setDate(date.getDate() - 1);
     return date;
-  }
-
-  function currentStreak(sessions) {
-    const activeDays = new Set((sessions || []).map((session) => localDayKey(session.sessionDate || session.createdAt)));
-    if (!activeDays.size) return 0;
-
-    const today = new Date();
-    let cursor = activeDays.has(localDayKey(today)) ? today : previousDate(today);
-    if (!activeDays.has(localDayKey(cursor))) return 0;
-
-    let streak = 0;
-    while (activeDays.has(localDayKey(cursor))) {
-      streak += 1;
-      cursor = previousDate(cursor);
-    }
-    return streak;
   }
 
   function formatShortDate(value) {
@@ -162,10 +144,23 @@
     return role === "listener" ? "سامع" : "مُسمِّع";
   }
 
-  function renderHistory(sessions) {
+  const periodLabels = {
+    day: "اليوم",
+    week: "هذا الأسبوع",
+    month: "هذا الشهر",
+    all: "كل الوقت",
+  };
+
+  function filteredSessions(period) {
+    return window.TaahudStudentDashboard.filterSessionsByPeriod(state.sessions, period, new Date());
+  }
+
+  function renderHistory() {
+    const sessions = filteredSessions(state.recordsPeriod);
     const body = document.getElementById("student-history-body");
     body.innerHTML = "";
-    document.getElementById("student-history-summary").textContent = sessions.length + " جلسة";
+    document.getElementById("student-history-summary").textContent =
+      sessions.length + " جلسة · " + periodLabels[state.recordsPeriod];
 
     if (!sessions.length) {
       const row = document.createElement("tr");
@@ -181,34 +176,48 @@
     sessions.forEach((session) => {
       const row = document.createElement("tr");
       [
-        formatShortDate(session.sessionDate || session.createdAt),
-        roleLabel(session.role),
-        session.counterpart || "",
-        session.pages || 0,
-        session.method || "",
-        session.points || 0,
-      ].forEach((value) => {
+        { label: "التاريخ", value: formatShortDate(session.sessionDate || session.createdAt) },
+        { label: "الدور", value: roleLabel(session.role) },
+        { label: "الطرف الآخر", value: session.counterpart || "" },
+        { label: "الصفحات", value: session.pages || 0 },
+        { label: "الطريقة", value: session.method || "" },
+        { label: "النقاط", value: session.points || 0 },
+      ].forEach((entry) => {
         const cell = document.createElement("td");
-        cell.textContent = value;
+        cell.dataset.label = entry.label;
+        cell.textContent = entry.value;
         row.appendChild(cell);
       });
       body.appendChild(row);
     });
   }
 
+  function renderStats() {
+    const sessions = filteredSessions(state.statsPeriod);
+    const totals = window.TaahudStudentDashboard.aggregateStudentSessions(sessions);
+
+    document.getElementById("student-stats-period-label").textContent =
+      "إحصائيات " + periodLabels[state.statsPeriod];
+    document.getElementById("student-total-points").textContent = totals.totalPoints;
+    document.getElementById("student-current-streak").textContent =
+      window.TaahudStudentDashboard.currentStreak(state.sessions, new Date());
+    document.getElementById("student-total-pages").textContent = totals.totalPages;
+    document.getElementById("student-total-sessions").textContent = totals.totalSessions;
+    document.getElementById("student-reciter-sessions").textContent = totals.reciterSessions;
+    document.getElementById("student-reciter-pages").textContent = totals.reciterPages + " صفحة";
+    document.getElementById("student-listener-sessions").textContent = totals.listenerSessions;
+    document.getElementById("student-listener-pages").textContent = totals.listenerPages + " صفحة";
+    document.getElementById("student-stats-empty").hidden = sessions.length !== 0;
+  }
+
   function renderDashboard(profile) {
     state.student = profile.student;
-    const sessions = profile.sessions || [];
-    const totalPoints = sessions.reduce((sum, session) => sum + (Number(session.points) || 0), 0);
-    const totalPages = sessions.reduce((sum, session) => sum + (Number(session.pages) || 0), 0);
+    state.sessions = profile.sessions || [];
 
     document.getElementById("student-dashboard-title").textContent =
       state.student.code + " — " + state.student.name;
-    document.getElementById("student-total-points").textContent = totalPoints;
-    document.getElementById("student-current-streak").textContent = currentStreak(sessions);
-    document.getElementById("student-total-pages").textContent = totalPages;
-    document.getElementById("student-total-sessions").textContent = sessions.length;
-    renderHistory(sessions);
+    renderStats();
+    renderHistory();
   }
 
   async function authenticateStudent(code, password) {
@@ -238,6 +247,42 @@
     populateListenerSelect();
     renderDashboard(profile);
     showView("dashboard");
+    showStudentView("checkin");
+  }
+
+  function showStudentView(name) {
+    document.querySelectorAll("[data-student-view]").forEach((button) => {
+      const active = button.dataset.studentView === name;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    ["checkin", "stats", "records"].forEach((view) => {
+      document.getElementById("student-view-" + view).hidden = view !== name;
+    });
+  }
+
+  function wireStudentNavigation() {
+    document.querySelectorAll("[data-student-view]").forEach((button) => {
+      button.addEventListener("click", () => showStudentView(button.dataset.studentView));
+    });
+  }
+
+  function syncPeriodFilter(containerId, period) {
+    document.querySelectorAll("#" + containerId + " [data-period]").forEach((item) => {
+      const active = item.dataset.period === period;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-pressed", String(active));
+    });
+  }
+
+  function wirePeriodFilter(containerId, stateKey, render) {
+    document.querySelectorAll("#" + containerId + " [data-period]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state[stateKey] = button.dataset.period;
+        syncPeriodFilter(containerId, state[stateKey]);
+        render();
+      });
+    });
   }
 
   function wireLogin() {
@@ -407,6 +452,11 @@
       state.code = "";
       state.password = "";
       state.student = null;
+      state.sessions = [];
+      state.statsPeriod = "day";
+      state.recordsPeriod = "day";
+      syncPeriodFilter("student-stats-filter", state.statsPeriod);
+      syncPeriodFilter("student-records-filter", state.recordsPeriod);
       document.getElementById("student-login-form").reset();
       document.getElementById("force-password-form").reset();
       showView("login");
@@ -420,6 +470,9 @@
 
     wireLogin();
     wireForcedPasswordChange();
+    wireStudentNavigation();
+    wirePeriodFilter("student-stats-filter", "statsPeriod", renderStats);
+    wirePeriodFilter("student-records-filter", "recordsPeriod", renderHistory);
     wireListenerChips();
     wireSessionTiming();
     wireCheckin();

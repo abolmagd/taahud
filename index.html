@@ -27,6 +27,9 @@
         </div>
         <button type="submit" class="btn btn-primary" id="student-login-btn">دخول</button>
       </form>
+      <p class="login-note">
+        كلمة المرور الافتراضية لأول تسجيل هي <strong dir="ltr">123456789</strong>
+      </p>
       <div id="login-toast" class="toast" hidden></div>
     </main>
 
@@ -55,101 +58,156 @@
         <button type="button" class="btn btn-secondary" id="student-logout-btn">خروج</button>
       </section>
 
-      <section class="stat-tiles student-stat-tiles">
-        <div class="stat-tile">
-          <span class="stat-tile-value" id="student-total-points">0</span>
-          <span class="stat-tile-label">النقاط</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-tile-value" id="student-current-streak">0</span>
-          <span class="stat-tile-label">الستريك</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-tile-value" id="student-total-pages">0</span>
-          <span class="stat-tile-label">الصفحات</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-tile-value" id="student-total-sessions">0</span>
-          <span class="stat-tile-label">الجلسات</span>
-        </div>
-      </section>
+      <nav class="student-nav" aria-label="أقسام حساب الطالب" role="tablist">
+        <button type="button" class="student-nav-tab active" data-student-view="checkin" role="tab" aria-selected="true" aria-controls="student-view-checkin">تسجيل جلسة</button>
+        <button type="button" class="student-nav-tab" data-student-view="stats" role="tab" aria-selected="false" aria-controls="student-view-stats">الإحصائيات</button>
+        <button type="button" class="student-nav-tab" data-student-view="records" role="tab" aria-selected="false" aria-controls="student-view-records">السجلات</button>
+      </nav>
 
-      <section class="card" id="checkin-card">
-        <h2>تسجيل جلسة</h2>
-        <form id="checkin-form" novalidate>
-
-        <div class="form-group">
-          <label for="listener-code">كود الحافظ الذي سمعت عليه</label>
-          <div class="code-search-quick-options">
-            <button type="button" class="chip" data-quick-value="__outside__">شخص آخر خارج <span class="brand-text">تعاهُد</span></button>
-            <button type="button" class="chip" data-quick-value="__listening_only__">وِرد استماع</button>
+      <section class="card student-view" id="student-view-checkin" role="tabpanel">
+        <div class="section-heading student-section-heading">
+          <div>
+            <p class="section-kicker">جلسة جديدة</p>
+            <h2>تسجيل التسميع</h2>
           </div>
-          <select id="listener-code" required>
-            <option value="">اختر الكود...</option>
-          </select>
+          <p class="muted">أدخل تفاصيل الجلسة بدقة ليتم حساب النقاط تلقائيًا</p>
         </div>
+        <form id="checkin-form" novalidate>
+          <fieldset class="form-section">
+            <legend>بيانات الجلسة</legend>
+            <div class="form-group form-group-wide">
+              <label for="listener-code">كود الحافظ الذي سمعت عليه</label>
+              <div class="code-search-quick-options">
+                <button type="button" class="chip" data-quick-value="__outside__">شخص آخر خارج <span class="brand-text">تعاهُد</span></button>
+                <button type="button" class="chip" data-quick-value="__listening_only__">وِرد استماع</button>
+              </div>
+              <select id="listener-code" required>
+                <option value="">اختر الكود...</option>
+              </select>
+            </div>
 
-        <div class="form-group">
-          <label for="session-timing">وقت التسميع</label>
-          <select id="session-timing" required>
-            <option value="today">اليوم</option>
-            <option value="previous">يوم سابق</option>
-          </select>
-        </div>
+            <div class="form-group">
+              <label for="session-timing">وقت التسميع</label>
+              <select id="session-timing" required>
+                <option value="today">اليوم</option>
+                <option value="previous">يوم سابق</option>
+              </select>
+            </div>
 
-        <div class="form-group" id="session-date-group" hidden>
-          <label for="session-date">تاريخ اليوم السابق</label>
-          <input type="date" id="session-date" />
-        </div>
+            <div class="form-group" id="session-date-group" hidden>
+              <label for="session-date">تاريخ اليوم السابق</label>
+              <input type="date" id="session-date" />
+            </div>
 
-        <div class="form-group">
-          <label for="pages">عدد الصفحات</label>
-          <input type="number" id="pages" min="0" step="0.5" required />
-        </div>
+            <div class="form-group">
+              <label for="pages">عدد الصفحات</label>
+              <input type="number" id="pages" min="0" step="0.5" required />
+            </div>
 
-        <div class="form-group">
-          <label for="surah-range">من (اختياري)</label>
-          <input type="text" id="surah-range" placeholder="مثال: النساء ٣٣ - ٥٩" />
-        </div>
+            <div class="form-group form-group-wide">
+              <label for="surah-range">من (اختياري)</label>
+              <input type="text" id="surah-range" placeholder="مثال: النساء ٣٣ - ٥٩" />
+            </div>
+          </fieldset>
 
-        <div class="form-group">
-          <label for="method">طريقة التسميع؟</label>
-          <select id="method" required>
-            <option value="">اختر...</option>
-            <option value="تليجرام">تليجرام</option>
-            <option value="واتس">واتس</option>
-            <option value="مكالمة هاتفية">مكالمة هاتفية</option>
-            <option value="جوجل ميت">جوجل ميت</option>
-            <option value="مقابلة">مقابلة</option>
-            <option value="استماع">استماع</option>
-            <option value="أخرى">أخرى</option>
-          </select>
-        </div>
+          <fieldset class="form-section">
+            <legend>تفاصيل التسميع</legend>
+            <div class="form-group">
+              <label for="method">طريقة التسميع؟</label>
+              <select id="method" required>
+                <option value="">اختر...</option>
+                <option value="تليجرام">تليجرام</option>
+                <option value="واتس">واتس</option>
+                <option value="مكالمة هاتفية">مكالمة هاتفية</option>
+                <option value="جوجل ميت">جوجل ميت</option>
+                <option value="مقابلة">مقابلة</option>
+                <option value="استماع">استماع</option>
+                <option value="أخرى">أخرى</option>
+              </select>
+            </div>
 
-        <div class="form-group">
-          <label for="satisfaction">هل أنت راض عن جودة محفوظك الذي سمعته؟</label>
-          <select id="satisfaction" required>
-            <option value="">اختر...</option>
-            <option value="نعم تماما">نعم تماما</option>
-            <option value="يحتاج إلى مزيد من الضبط">يحتاج إلى مزيد من الضبط</option>
-            <option value="وردي كان ورد استماع">وردي كان ورد استماع</option>
-          </select>
-        </div>
+            <div class="form-group">
+              <label for="satisfaction">هل أنت راض عن جودة محفوظك الذي سمعته؟</label>
+              <select id="satisfaction" required>
+                <option value="">اختر...</option>
+                <option value="نعم تماما">نعم تماما</option>
+                <option value="يحتاج إلى مزيد من الضبط">يحتاج إلى مزيد من الضبط</option>
+                <option value="وردي كان ورد استماع">وردي كان ورد استماع</option>
+              </select>
+            </div>
 
-        <div class="form-group">
-          <label for="notes">ملاحظات واقتراحات (اختياري)</label>
-          <textarea id="notes" rows="3"></textarea>
-        </div>
+            <div class="form-group form-group-wide">
+              <label for="notes">ملاحظات واقتراحات (اختياري)</label>
+              <textarea id="notes" rows="3"></textarea>
+            </div>
+          </fieldset>
 
-        <button type="submit" class="btn btn-primary" id="submit-btn">تسجيل</button>
-      </form>
-      <div id="toast" class="toast" hidden></div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submit-btn">تسجيل الجلسة</button>
+          </div>
+        </form>
+        <div id="toast" class="toast" hidden></div>
       </section>
 
-      <section class="card">
-        <div class="section-heading">
-          <h2>الهيستوري</h2>
-          <p class="muted" id="student-history-summary">0 جلسة</p>
+      <section class="student-view" id="student-view-stats" role="tabpanel" hidden>
+        <div class="student-view-toolbar">
+          <div>
+            <p class="section-kicker">ملخص الأداء</p>
+            <h2>الإحصائيات</h2>
+            <p class="muted" id="student-stats-period-label">إحصائيات اليوم</p>
+          </div>
+          <div class="period-filter" id="student-stats-filter" aria-label="فلترة الإحصائيات">
+            <button type="button" class="period-filter-btn active" data-period="day" aria-pressed="true">اليوم</button>
+            <button type="button" class="period-filter-btn" data-period="week" aria-pressed="false">الأسبوع</button>
+            <button type="button" class="period-filter-btn" data-period="month" aria-pressed="false">الشهر</button>
+            <button type="button" class="period-filter-btn" data-period="all" aria-pressed="false">الكل</button>
+          </div>
+        </div>
+
+        <section class="stat-tiles student-stat-tiles" aria-live="polite">
+          <div class="stat-tile stat-tile-featured">
+            <span class="stat-tile-label">النقاط</span>
+            <span class="stat-tile-value" id="student-total-points">0</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-tile-label">الستريك الحالي</span>
+            <span class="stat-tile-value" id="student-current-streak">0</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-tile-label">إجمالي الصفحات</span>
+            <span class="stat-tile-value" id="student-total-pages">0</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-tile-label">إجمالي الجلسات</span>
+            <span class="stat-tile-value" id="student-total-sessions">0</span>
+          </div>
+          <div class="stat-tile stat-tile-detail">
+            <span class="stat-tile-label">جلسات كمُسمِّع</span>
+            <span class="stat-tile-value" id="student-reciter-sessions">0</span>
+            <span class="stat-tile-meta" id="student-reciter-pages">0 صفحة</span>
+          </div>
+          <div class="stat-tile stat-tile-detail">
+            <span class="stat-tile-label">جلسات كسامع</span>
+            <span class="stat-tile-value" id="student-listener-sessions">0</span>
+            <span class="stat-tile-meta" id="student-listener-pages">0 صفحة</span>
+          </div>
+        </section>
+        <p class="stats-empty-state" id="student-stats-empty" hidden>لا توجد جلسات في الفترة المحددة.</p>
+      </section>
+
+      <section class="card student-view" id="student-view-records" role="tabpanel" hidden>
+        <div class="student-view-toolbar records-toolbar">
+          <div>
+            <p class="section-kicker">كل نشاطك</p>
+            <h2>السجلات</h2>
+            <p class="muted" id="student-history-summary">0 جلسة</p>
+          </div>
+          <div class="period-filter" id="student-records-filter" aria-label="فلترة السجلات">
+            <button type="button" class="period-filter-btn active" data-period="day" aria-pressed="true">اليوم</button>
+            <button type="button" class="period-filter-btn" data-period="week" aria-pressed="false">الأسبوع</button>
+            <button type="button" class="period-filter-btn" data-period="month" aria-pressed="false">الشهر</button>
+            <button type="button" class="period-filter-btn" data-period="all" aria-pressed="false">الكل</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table class="table student-history-table">
@@ -173,6 +231,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="supabase-config.js" defer></script>
   <script src="points.js" defer></script>
+  <script src="student-dashboard.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
