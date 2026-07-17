@@ -478,8 +478,45 @@ begin
 end;
 $$;
 
+drop function if exists public.complete_student_password_change(text, text, text);
+
+create or replace function public.complete_student_password_change(
+  auth_code text,
+  old_password text,
+  new_password text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  changed_student public.students%rowtype;
+begin
+  if length(coalesce(new_password, '')) < 6 then
+    raise exception 'weak_password' using errcode = 'P0001';
+  end if;
+
+  update public.students s
+  set password_hash = extensions.crypt(new_password, extensions.gen_salt('bf')),
+      password_changed_at = now()
+  where s.active = true
+    and s.code = trim(auth_code)
+    and s.password_hash = extensions.crypt(old_password, s.password_hash)
+  returning s.*
+  into changed_student;
+
+  if changed_student.id is null then
+    raise exception 'invalid_login' using errcode = 'P0001';
+  end if;
+
+  return public.get_student_profile(auth_code, new_password);
+end;
+$$;
+
 grant execute on function public.authenticate_student(text, text) to anon, authenticated;
 grant execute on function public.change_student_password(text, text, text) to anon, authenticated;
+grant execute on function public.complete_student_password_change(text, text, text) to anon, authenticated;
 grant execute on function public.reset_student_password(uuid) to authenticated;
 grant execute on function public.record_student_session(text, text, text, text, numeric, text, text, text, text, text, date)
   to anon, authenticated;

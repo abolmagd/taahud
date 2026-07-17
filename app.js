@@ -40,6 +40,9 @@
     if (message.includes("password_change_required")) return "يجب تغيير كلمة المرور أولًا";
     if (message.includes("invalid_listener")) return "كود السامع غير صحيح";
     if (message.includes("invalid_session_date")) return "اختر تاريخًا سابقًا صحيحًا";
+    if (message.includes("Could not find the function") || message.includes("schema cache")) {
+      return "تحديث قاعدة البيانات غير مكتمل، شغّل كود SQL الأخير";
+    }
     return "حدث خطأ، يرجى المحاولة مرة أخرى";
   }
 
@@ -227,9 +230,13 @@
   }
 
   async function enterDashboard() {
+    await enterDashboardWithProfile(await loadProfile());
+  }
+
+  async function enterDashboardWithProfile(profile) {
     state.students = await loadStudents();
     populateListenerSelect();
-    renderDashboard(await loadProfile());
+    renderDashboard(profile);
     showView("dashboard");
   }
 
@@ -287,15 +294,14 @@
 
       setButtonLoading(button, true);
       try {
-        const { data, error } = await state.client.rpc("change_student_password", {
+        const { data, error } = await state.client.rpc("complete_student_password_change", {
           auth_code: state.code,
           old_password: state.password,
           new_password: nextPassword,
         });
         if (error) throw error;
         state.password = nextPassword;
-        state.student = Array.isArray(data) ? data[0] || state.student : data || state.student;
-        await enterDashboard();
+        await enterDashboardWithProfile(data);
       } catch (error) {
         console.error("[Ta'ahud] Password change failed", error);
         showToast("password-toast", friendlyError(error), "error");
