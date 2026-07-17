@@ -188,7 +188,7 @@
           <input type="file" id="bulk-student-file" accept=".csv,text/csv" />
         </div>
         <button type="button" class="btn btn-secondary" id="import-students-btn">استيراد الملف</button>
-        <button type="button" class="btn btn-secondary" id="rotate-passwords-btn">تأمين كلمات المرور القديمة</button>
+        <button type="button" class="btn btn-secondary" id="rotate-passwords-btn">ضبط كلمات المرور الافتراضية</button>
       </div>
       <div class="form-group">
         <label for="roster-search">البحث بالكود أو الاسم</label>
@@ -392,9 +392,9 @@
   </div>
 
   <dialog id="credentials-dialog" class="app-dialog" aria-labelledby="credentials-title">
-    <h2 id="credentials-title">بيانات الدخول المؤقتة</h2>
-    <p class="muted">تظهر هذه الكلمات الآن فقط. صدّر الملف وسلّم كل طالب بياناته منفصلة.</p>
-    <div class="table-wrap"><table class="table"><thead><tr><th>الكود</th><th>الاسم</th><th>كلمة المرور المؤقتة</th></tr></thead><tbody id="credentials-body"></tbody></table></div>
+    <h2 id="credentials-title">بيانات الدخول الافتراضية</h2>
+    <p class="muted">كلمة المرور الافتراضية هي 123456789، ويجب على الطالب تغييرها عند أول دخول.</p>
+    <div class="table-wrap"><table class="table"><thead><tr><th>الكود</th><th>الاسم</th><th>كلمة المرور الافتراضية</th></tr></thead><tbody id="credentials-body"></tbody></table></div>
     <div class="dialog-actions"><button type="button" class="btn btn-primary" id="export-credentials-btn">تصدير CSV</button><button type="button" class="btn btn-secondary" id="close-credentials-btn">إغلاق</button></div>
   </dialog>
 

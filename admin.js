@@ -143,7 +143,7 @@ window.TaahudAdmin = (function () {
       resetPasswordBtn.textContent = "إعادة كلمة المرور";
       resetPasswordBtn.addEventListener("click", async () => {
         const confirmed = window.confirm(
-          "إنشاء كلمة مرور مؤقتة جديدة للطالب " + student.code + "؟ ستنتهي أي جلسة مفتوحة له."
+          "إعادة كلمة مرور الطالب " + student.code + " إلى 123456789؟ ستنتهي أي جلسة مفتوحة له."
         );
         if (!confirmed) return;
 
@@ -160,7 +160,7 @@ window.TaahudAdmin = (function () {
         }
 
         showCredentials([data]);
-        showToast("roster-toast", "تم إنشاء كلمة مرور مؤقتة جديدة", "success");
+        showToast("roster-toast", "تمت إعادة كلمة المرور إلى 123456789", "success");
         await refreshRoster();
       });
       actionCell.appendChild(resetPasswordBtn);
@@ -307,14 +307,14 @@ window.TaahudAdmin = (function () {
   function wireRosterTools() {
     document.getElementById("close-credentials-btn").addEventListener("click", () => document.getElementById("credentials-dialog").close());
     document.getElementById("export-credentials-btn").addEventListener("click", () => {
-      downloadCsv("taahud-temporary-passwords.csv", ["code", "name", "temporary_password"],
+      downloadCsv("taahud-default-passwords.csv", ["code", "name", "default_password"],
         state.credentials.map((item) => [item.code, item.name, item.temporaryPassword || item.temporary_password]));
     });
     document.getElementById("rotate-passwords-btn").addEventListener("click", async () => {
-      if (!window.confirm("سيتم تغيير كلمات المرور لكل الحسابات التي لم تغيّر كلمة المرور بعد. استمر؟")) return;
+      if (!window.confirm("سيتم ضبط كلمة المرور الافتراضية 123456789 لكل الحسابات التي لم تغيّرها بعد. استمر؟")) return;
       const { data, error } = await state.client.rpc("rotate_unclaimed_student_passwords");
-      if (error) return showToast("roster-toast", "تعذر تأمين كلمات المرور", "error");
-      if (!data.length) return showToast("roster-toast", "لا توجد حسابات قديمة تحتاج إلى تأمين", "success");
+      if (error) return showToast("roster-toast", "تعذر ضبط كلمات المرور", "error");
+      if (!data.length) return showToast("roster-toast", "لا توجد حسابات تحتاج إلى إعادة ضبط", "success");
       showCredentials(data);
     });
     document.getElementById("import-students-btn").addEventListener("click", async () => {

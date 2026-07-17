@@ -67,17 +67,17 @@ $$;
 create or replace function public.taahud_generate_temporary_password()
 returns text
 language sql
-volatile
+immutable
 security definer
 set search_path = public, extensions
 as $$
-  select upper(substr(encode(extensions.gen_random_bytes(8), 'hex'), 1, 10));
+  select '123456789'::text;
 $$;
 
--- Immediately invalidate the historical shared password. The admin then uses
--- "تأمين كلمات المرور القديمة" to generate and export deliverable credentials.
+-- Accounts that have not completed their first password change use the shared
+-- default requested by the program administrator.
 update public.students
-set password_hash = extensions.crypt(public.taahud_generate_temporary_password(), extensions.gen_salt('bf'))
+set password_hash = extensions.crypt('123456789', extensions.gen_salt('bf'))
 where password_changed_at is null;
 
 create or replace function public.taahud_student_id_for_token(access_token text)
@@ -591,8 +591,7 @@ grant execute on function public.rotate_unclaimed_student_passwords() to authent
 grant execute on function public.admin_update_session(uuid,numeric,text,text,text,text,date,integer,integer,text) to authenticated;
 grant execute on function public.admin_delete_session(uuid,text) to authenticated;
 
--- Existing accounts that still use the historical shared password must be
--- rotated from the admin UI after this migration. The UI exports the new
--- one-time credentials as a CSV so no plaintext password is stored here.
+-- Existing accounts that have not changed their password are reset to
+-- 123456789. The forced-change screen still replaces it on first login.
 
 commit;

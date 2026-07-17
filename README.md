@@ -18,8 +18,8 @@ project, its own Vercel deployment.
 4. In Project Settings → API, copy the Project URL and the `anon` public key
    into `supabase-config.js` (`SUPABASE_URL` / `SUPABASE_ANON_KEY`).
 5. In the admin dashboard (`admin.html`), log in and use the "الطلاب" tab to
-   add students individually or import a two-column CSV (`code,name`). Export
-   the one-time passwords shown after creation and deliver each one privately.
+   add students individually or import a two-column CSV (`code,name`). New and
+   reset accounts use `123456789` until the student changes it on first login.
 6. In the "الإعدادات" tab, set the three point rules: daily check-in/streak,
    points per recited page, and points per listened page.
 
@@ -56,7 +56,7 @@ Deploy the project root to Vercel as a static site (no build command needed).
 
 ## End-to-end QA checklist (run once after setup, and after any deploy)
 
-- [ ] Student login accepts the one-time password, forces an 8-character
+- [ ] Student login accepts `123456789`, forces an 8-character
       replacement, and restores the short-lived session after a refresh.
 - [ ] Student check-in loads active listener codes without exposing names or
       password status to anonymous visitors.
@@ -67,7 +67,7 @@ Deploy the project root to Vercel as a static site (no build command needed).
       points of `0`, while the reciter still gets their configured daily/page
       points.
 - [ ] Admin login rejects a wrong password and accepts the right one.
-- [ ] Admin can add/deactivate a student, reset a unique one-time password, and
+- [ ] Admin can add/deactivate a student, reset the password to `123456789`, and
       a deactivated student disappears from the check-in dropdowns.
 - [ ] Admin stats table shows correct totals for day/week/month and sorts on
       column click.
