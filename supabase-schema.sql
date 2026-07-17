@@ -185,21 +185,20 @@ as $$
   limit 1;
 $$;
 
+drop function if exists public.change_student_password(text, text, text);
+
 create or replace function public.change_student_password(
   auth_code text,
   old_password text,
   new_password text
 )
-returns table (
-  id uuid,
-  code text,
-  name text,
-  must_change_password boolean
-)
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  changed_student public.students%rowtype;
 begin
   if length(coalesce(new_password, '')) < 6 then
     raise exception 'weak_password' using errcode = 'P0001';
@@ -211,14 +210,19 @@ begin
   where s.active = true
     and s.code = trim(auth_code)
     and s.password_hash = extensions.crypt(old_password, s.password_hash)
-  returning s.id, s.code, s.name, false
-  into id, code, name, must_change_password;
+  returning s.*
+  into changed_student;
 
-  if id is null then
+  if changed_student.id is null then
     raise exception 'invalid_login' using errcode = 'P0001';
   end if;
 
-  return next;
+  return jsonb_build_object(
+    'id', changed_student.id,
+    'code', changed_student.code,
+    'name', changed_student.name,
+    'must_change_password', false
+  );
 end;
 $$;
 

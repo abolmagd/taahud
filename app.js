@@ -294,7 +294,7 @@
         });
         if (error) throw error;
         state.password = nextPassword;
-        state.student = (data || [])[0] || state.student;
+        state.student = Array.isArray(data) ? data[0] || state.student : data || state.student;
         await enterDashboard();
       } catch (error) {
         console.error("[Ta'ahud] Password change failed", error);
