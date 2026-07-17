@@ -12,6 +12,9 @@ project, its own Vercel deployment.
 2. In the new project's SQL Editor, run `supabase-schema.sql`, then
    `supabase-upgrade-2026-07.sql` in that order. Existing projects only need
    the upgrade file.
+   If the random-password upgrade was previously deployed, run
+   `supabase-fix-default-password-reset.sql` once to restore `123456789` for
+   student add/reset actions.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
