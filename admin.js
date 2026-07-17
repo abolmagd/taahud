@@ -110,6 +110,7 @@ window.TaahudAdmin = (function () {
       const actionCell = document.createElement("td");
       actionCell.style.display = "flex";
       actionCell.style.gap = "8px";
+      actionCell.style.flexWrap = "wrap";
 
       const detailBtn = document.createElement("button");
       detailBtn.className = "btn btn-secondary";
@@ -132,6 +133,34 @@ window.TaahudAdmin = (function () {
         await refreshRoster();
       });
       actionCell.appendChild(toggleBtn);
+
+      const resetPasswordBtn = document.createElement("button");
+      resetPasswordBtn.className = "btn btn-secondary";
+      resetPasswordBtn.textContent = "إعادة كلمة المرور";
+      resetPasswordBtn.addEventListener("click", async () => {
+        const confirmed = window.confirm(
+          "هل تريد إعادة كلمة مرور الطالب " +
+            student.code +
+            " إلى 123456789؟ سيُطلب منه تغييرها عند أول دخول."
+        );
+        if (!confirmed) return;
+
+        resetPasswordBtn.disabled = true;
+        const { error } = await state.client.rpc("reset_student_password", {
+          target_student_id: student.id,
+        });
+        resetPasswordBtn.disabled = false;
+
+        if (error) {
+          console.error("[Ta'ahud] Failed to reset student password", error);
+          showToast("roster-toast", "حدث خطأ أثناء إعادة كلمة المرور", "error");
+          return;
+        }
+
+        showToast("roster-toast", "تمت إعادة كلمة المرور إلى 123456789", "success");
+        await refreshRoster();
+      });
+      actionCell.appendChild(resetPasswordBtn);
 
       row.appendChild(codeCell);
       row.appendChild(nameCell);

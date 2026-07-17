@@ -226,6 +226,43 @@ begin
 end;
 $$;
 
+drop function if exists public.reset_student_password(uuid);
+
+create or replace function public.reset_student_password(
+  target_student_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  changed_student public.students%rowtype;
+begin
+  if auth.role() <> 'authenticated' then
+    raise exception 'admin_required' using errcode = 'P0001';
+  end if;
+
+  update public.students s
+  set password_hash = extensions.crypt('123456789', extensions.gen_salt('bf')),
+      password_changed_at = null
+  where s.id = target_student_id
+  returning s.*
+  into changed_student;
+
+  if changed_student.id is null then
+    raise exception 'student_not_found' using errcode = 'P0001';
+  end if;
+
+  return jsonb_build_object(
+    'id', changed_student.id,
+    'code', changed_student.code,
+    'name', changed_student.name,
+    'must_change_password', true
+  );
+end;
+$$;
+
 create or replace function public.record_student_session(
   auth_code text,
   auth_password text,
@@ -443,6 +480,7 @@ $$;
 
 grant execute on function public.authenticate_student(text, text) to anon, authenticated;
 grant execute on function public.change_student_password(text, text, text) to anon, authenticated;
+grant execute on function public.reset_student_password(uuid) to authenticated;
 grant execute on function public.record_student_session(text, text, text, text, numeric, text, text, text, text, text, date)
   to anon, authenticated;
 grant execute on function public.get_student_profile(text, text) to anon, authenticated;
