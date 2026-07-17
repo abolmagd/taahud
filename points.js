@@ -35,6 +35,25 @@
     };
   }
 
+  function localDayKey(value) {
+    const date = new Date(value);
+    return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+  }
+
+  function previousLocalDayKey(value) {
+    const date = new Date(value);
+    date.setDate(date.getDate() - 1);
+    return localDayKey(date);
+  }
+
+  function shouldAwardDailyCheckin(activeDayKeys, sessionDate) {
+    const keys = new Set(activeDayKeys || []);
+    const todayKey = localDayKey(sessionDate || new Date());
+    if (keys.has(todayKey)) return false;
+    if (!keys.size) return true;
+    return keys.has(previousLocalDayKey(sessionDate || new Date()));
+  }
+
   function computeSessionPoints(input) {
     const rules = normalizePointRules(input && input.pointRules);
     const pages = Math.max(0, Number(input && input.pages) || 0);
@@ -51,5 +70,12 @@
     };
   }
 
-  return { DEFAULT_POINT_RULES, normalizePointRules, computeSessionPoints };
+  return {
+    DEFAULT_POINT_RULES,
+    normalizePointRules,
+    localDayKey,
+    previousLocalDayKey,
+    shouldAwardDailyCheckin,
+    computeSessionPoints,
+  };
 });

@@ -15,14 +15,68 @@
       <p class="muted">سجّل ما تم تسميعه أو الاستماع إليه</p>
     </header>
 
-    <main class="card" id="checkin-card">
-      <form id="checkin-form" novalidate>
+    <main class="card login-screen" id="student-login-card">
+      <form id="student-login-form" novalidate>
         <div class="form-group">
-          <label for="student-code">الكود الخاص بك</label>
-          <select id="student-code" required>
-            <option value="">اختر كودك...</option>
-          </select>
+          <label for="login-code">الكود الخاص بك</label>
+          <input type="text" id="login-code" autocomplete="username" required />
         </div>
+        <div class="form-group">
+          <label for="login-password">كلمة المرور</label>
+          <input type="password" id="login-password" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary" id="student-login-btn">دخول</button>
+      </form>
+      <div id="login-toast" class="toast" hidden></div>
+    </main>
+
+    <section class="card login-screen" id="force-password-card" hidden>
+      <h2>تغيير كلمة المرور</h2>
+      <form id="force-password-form" novalidate>
+        <div class="form-group">
+          <label for="new-student-password">كلمة المرور الجديدة</label>
+          <input type="password" id="new-student-password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <div class="form-group">
+          <label for="confirm-student-password">تأكيد كلمة المرور</label>
+          <input type="password" id="confirm-student-password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <button type="submit" class="btn btn-primary" id="force-password-btn">حفظ ودخول</button>
+      </form>
+      <div id="password-toast" class="toast" hidden></div>
+    </section>
+
+    <main id="student-dashboard" hidden>
+      <section class="student-dashboard-head">
+        <div>
+          <p class="muted">مرحبًا</p>
+          <h2 id="student-dashboard-title"></h2>
+        </div>
+        <button type="button" class="btn btn-secondary" id="student-logout-btn">خروج</button>
+      </section>
+
+      <section class="stat-tiles student-stat-tiles">
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-total-points">0</span>
+          <span class="stat-tile-label">النقاط</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-current-streak">0</span>
+          <span class="stat-tile-label">الستريك</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-total-pages">0</span>
+          <span class="stat-tile-label">الصفحات</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="student-total-sessions">0</span>
+          <span class="stat-tile-label">الجلسات</span>
+        </div>
+      </section>
+
+      <section class="card" id="checkin-card">
+        <h2>تسجيل جلسة</h2>
+        <form id="checkin-form" novalidate>
 
         <div class="form-group">
           <label for="listener-code">كود الحافظ الذي سمعت عليه</label>
@@ -33,6 +87,19 @@
           <select id="listener-code" required>
             <option value="">اختر الكود...</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label for="session-timing">وقت التسميع</label>
+          <select id="session-timing" required>
+            <option value="today">اليوم</option>
+            <option value="previous">يوم سابق</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="session-date-group" hidden>
+          <label for="session-date">تاريخ اليوم السابق</label>
+          <input type="date" id="session-date" />
         </div>
 
         <div class="form-group">
@@ -77,6 +144,29 @@
         <button type="submit" class="btn btn-primary" id="submit-btn">تسجيل</button>
       </form>
       <div id="toast" class="toast" hidden></div>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
+          <h2>الهيستوري</h2>
+          <p class="muted" id="student-history-summary">0 جلسة</p>
+        </div>
+        <div class="table-wrap">
+          <table class="table student-history-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الدور</th>
+                <th>الطرف الآخر</th>
+                <th>الصفحات</th>
+                <th>الطريقة</th>
+                <th>النقاط</th>
+              </tr>
+            </thead>
+            <tbody id="student-history-body"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
 

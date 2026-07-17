@@ -691,6 +691,28 @@ body {
   margin: 80px auto;
 }
 
+.student-dashboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.student-dashboard-head h2 {
+  margin: 0;
+  color: var(--brand);
+  font-family: var(--font-heading);
+}
+
+.student-stat-tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.student-history-table {
+  min-width: 620px;
+}
+
 hr.divider {
   border: none;
   border-top: 1px solid var(--line);
@@ -713,6 +735,7 @@ hr.divider {
 
 @media (max-width: 640px) {
   .admin-header,
+  .student-dashboard-head,
   .section-heading {
     flex-direction: column;
     align-items: stretch;
@@ -748,5 +771,9 @@ hr.divider {
 
   .activity-bar {
     height: 10px !important;
+  }
+
+  .student-stat-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

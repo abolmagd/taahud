@@ -2,7 +2,12 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_POINT_RULES, normalizePointRules, computeSessionPoints } = require("../points.js");
+const {
+  DEFAULT_POINT_RULES,
+  normalizePointRules,
+  shouldAwardDailyCheckin,
+  computeSessionPoints,
+} = require("../points.js");
 
 test("normalizePointRules: uses the 5/2/1 defaults", () => {
   assert.deepEqual(normalizePointRules(), DEFAULT_POINT_RULES);
@@ -66,4 +71,11 @@ test("computeSessionPoints: treats invalid rules and pages conservatively", () =
     }),
     { reciterPoints: 5, listenerPoints: 5 }
   );
+});
+
+test("shouldAwardDailyCheckin: requires a consecutive streak after the first active day", () => {
+  assert.equal(shouldAwardDailyCheckin([], new Date(2026, 6, 8)), true);
+  assert.equal(shouldAwardDailyCheckin(["2026-7-8"], new Date(2026, 6, 9)), true);
+  assert.equal(shouldAwardDailyCheckin(["2026-7-8"], new Date(2026, 6, 10)), false);
+  assert.equal(shouldAwardDailyCheckin(["2026-7-8", "2026-7-9"], new Date(2026, 6, 9)), false);
 });

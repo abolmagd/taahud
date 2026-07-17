@@ -44,8 +44,8 @@
   }
 
   function sessionInRange(session, start, end) {
-    const createdAt = new Date(session.createdAt);
-    return createdAt >= start && createdAt < end;
+    const effectiveDate = new Date(sessionEffectiveDate(session));
+    return effectiveDate >= start && effectiveDate < end;
   }
 
   function sessionsInPeriod(sessions, period, referenceDate) {
@@ -73,9 +73,26 @@
     return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
   }
 
+  function previousLocalDayKey(value) {
+    const date = new Date(value);
+    date.setDate(date.getDate() - 1);
+    return localDayKey(date);
+  }
+
+  function sessionEffectiveDate(session) {
+    return session.sessionDate || session.createdAt;
+  }
+
   function sessionTimestamp(session) {
-    const timestamp = new Date(session.createdAt).getTime();
+    const timestamp = new Date(sessionEffectiveDate(session)).getTime();
     return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  function shouldAwardDailyCheckin(activeDayKeys, sessionDate) {
+    const dayKey = localDayKey(sessionDate);
+    if (activeDayKeys.has(dayKey)) return false;
+    if (!activeDayKeys.size) return true;
+    return activeDayKeys.has(previousLocalDayKey(sessionDate));
   }
 
   function withEffectivePoints(sessions, pointRules) {
@@ -88,7 +105,7 @@
       }));
     }
 
-    const dailyKeys = new Set();
+    const dailyKeys = new Map();
     const ordered = sessions
       .map((session, index) => ({ session, index }))
       .sort((a, b) => sessionTimestamp(a.session) - sessionTimestamp(b.session) || a.index - b.index);
@@ -96,16 +113,27 @@
 
     ordered.forEach(({ session, index }) => {
       const pages = Math.max(0, Number(session.pages) || 0);
-      const dayKey = localDayKey(session.createdAt);
-      const reciterKey = session.studentId + "|" + dayKey;
-      const awardReciterDaily = session.studentId && !dailyKeys.has(reciterKey);
-      if (session.studentId) dailyKeys.add(reciterKey);
+      const effectiveDate = sessionEffectiveDate(session);
+      const dayKey = localDayKey(effectiveDate);
+      const reciterDays = dailyKeys.get(session.studentId) || new Set();
+      const awardReciterDaily = session.studentId && shouldAwardDailyCheckin(reciterDays, effectiveDate);
+      if (session.studentId) {
+        reciterDays.add(dayKey);
+        dailyKeys.set(session.studentId, reciterDays);
+      }
 
       let listenerPointsAwarded = 0;
       if (session.listenerType === "student" && session.listenerStudentId) {
-        const listenerKey = session.listenerStudentId + "|" + dayKey;
-        const awardListenerDaily = !dailyKeys.has(listenerKey);
-        dailyKeys.add(listenerKey);
+        const listenerDays =
+          session.listenerStudentId === session.studentId
+            ? reciterDays
+            : dailyKeys.get(session.listenerStudentId) || new Set();
+        const awardListenerDaily =
+          session.listenerStudentId === session.studentId
+            ? awardReciterDaily
+            : shouldAwardDailyCheckin(listenerDays, effectiveDate);
+        listenerDays.add(dayKey);
+        dailyKeys.set(session.listenerStudentId, listenerDays);
         listenerPointsAwarded =
           (awardListenerDaily ? rules.dailyCheckin : 0) + Math.trunc(pages * rules.listenerPage);
       }
@@ -231,6 +259,7 @@
     periodBounds,
     sessionInRange,
     sessionsInPeriod,
+    sessionEffectiveDate,
     withEffectivePoints,
     effectiveSessionPoints,
     aggregateStudentStats,

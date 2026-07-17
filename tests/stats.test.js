@@ -306,6 +306,64 @@ test("aggregateStudentStats: recomputed point rules update rankings without chan
   ]);
 });
 
+test("aggregateStudentStats: daily check-in points stop after a missed streak day", () => {
+  const students = [{ id: "s1", code: "1", name: "Ahmed" }];
+  const sessions = [
+    {
+      studentId: "s1",
+      listenerType: "outside",
+      pages: 1,
+      pointsAwarded: 0,
+      listenerPointsAwarded: 0,
+      sessionDate: "2026-07-08",
+      createdAt: "2026-07-08T10:00:00",
+    },
+    {
+      studentId: "s1",
+      listenerType: "outside",
+      pages: 1,
+      pointsAwarded: 0,
+      listenerPointsAwarded: 0,
+      sessionDate: "2026-07-09",
+      createdAt: "2026-07-09T10:00:00",
+    },
+    {
+      studentId: "s1",
+      listenerType: "outside",
+      pages: 1,
+      pointsAwarded: 0,
+      listenerPointsAwarded: 0,
+      sessionDate: "2026-07-11",
+      createdAt: "2026-07-11T10:00:00",
+    },
+  ];
+
+  const [result] = aggregateStudentStats(students, sessions, "all", new Date(2026, 6, 11), {
+    dailyCheckin: 5,
+    reciterPage: 2,
+    listenerPage: 1,
+  });
+
+  assert.equal(result.pointsEarned, 16); // day 1: 7, day 2: 7, after missed day: 2
+});
+
+test("aggregateTotals: period filters use the selected session date when present", () => {
+  const sessions = [
+    {
+      studentId: "s1",
+      listenerType: "outside",
+      pages: 2,
+      pointsAwarded: 9,
+      listenerPointsAwarded: 0,
+      sessionDate: "2026-07-07",
+      createdAt: "2026-07-08T23:00:00",
+    },
+  ];
+
+  assert.equal(aggregateTotals(sessions, "day", new Date(2026, 6, 7)).totalSessions, 1);
+  assert.equal(aggregateTotals(sessions, "day", new Date(2026, 6, 8)).totalSessions, 0);
+});
+
 test("aggregateByField: groups sessions by a chosen dimension", () => {
   const sessions = [
     { method: "واتس", pages: 2, pointsAwarded: 9, listenerPointsAwarded: 7, createdAt: "2026-07-08T10:00:00" },

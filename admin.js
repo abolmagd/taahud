@@ -359,7 +359,7 @@ window.TaahudAdmin = (function () {
     const { data, error } = await state.client
       .from("sessions")
       .select(
-        "student_id, listener_type, listener_student_id, pages, points_awarded, listener_points_awarded, created_at"
+        "student_id, listener_type, listener_student_id, pages, points_awarded, listener_points_awarded, session_date, created_at"
       );
     if (error) {
       console.error("[Ta'ahud] Failed to load sessions", error);
@@ -372,6 +372,7 @@ window.TaahudAdmin = (function () {
       pages: row.pages,
       pointsAwarded: row.points_awarded,
       listenerPointsAwarded: row.listener_points_awarded,
+      sessionDate: row.session_date,
       createdAt: row.created_at,
     }));
   }
@@ -446,9 +447,10 @@ window.TaahudAdmin = (function () {
       .from("sessions")
       .select(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
-          "points_awarded, listener_points_awarded, surah_range, satisfaction, notes, " +
+          "points_awarded, listener_points_awarded, session_date, session_timing, surah_range, satisfaction, notes, " +
           "student:students!student_id(code, name), listener:students!listener_student_id(code, name)"
       )
+      .order("session_date", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) {
       console.error("[Ta'ahud] Failed to load session log", error);
@@ -461,6 +463,8 @@ window.TaahudAdmin = (function () {
       listenerStudentId: row.listener_student_id,
       method: row.method,
       createdAt: row.created_at,
+      sessionDate: row.session_date,
+      sessionTiming: row.session_timing,
       pages: row.pages,
       pointsAwarded: row.points_awarded,
       listenerPointsAwarded: row.listener_points_awarded,
@@ -497,6 +501,10 @@ window.TaahudAdmin = (function () {
 
   function shortDate(value) {
     return new Date(value).toLocaleDateString("ar-EG", { day: "numeric", month: "short" });
+  }
+
+  function sessionDisplayDate(session) {
+    return session.sessionDate || session.createdAt;
   }
 
   function sameLocalDay(a, b) {
@@ -559,7 +567,7 @@ window.TaahudAdmin = (function () {
       title.textContent = session.studentLabel;
       const meta = document.createElement("span");
       meta.className = "compact-meta";
-      meta.textContent = session.pages + " صفحة · " + session.method + " · " + shortDate(session.createdAt);
+      meta.textContent = session.pages + " صفحة · " + session.method + " · " + shortDate(sessionDisplayDate(session));
       item.append(title, meta);
       container.appendChild(item);
     });
@@ -604,7 +612,7 @@ window.TaahudAdmin = (function () {
     const ref = new Date(referenceDate);
     for (let offset = 6; offset >= 0; offset -= 1) {
       const day = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - offset);
-      const daySessions = sessions.filter((session) => sameLocalDay(session.createdAt, day));
+      const daySessions = sessions.filter((session) => sameLocalDay(sessionDisplayDate(session), day));
       days.push({
         date: day,
         sessions: daySessions.length,
@@ -669,7 +677,7 @@ window.TaahudAdmin = (function () {
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [
-        new Date(row.createdAt).toLocaleString("ar-EG"),
+        new Date(sessionDisplayDate(row)).toLocaleDateString("ar-EG"),
         row.studentLabel,
         row.listenerLabel,
         row.pages,
@@ -729,6 +737,7 @@ window.TaahudAdmin = (function () {
         const isReciter = s.studentId === student.id;
         return {
           createdAt: s.createdAt,
+          sessionDate: s.sessionDate,
           role: isReciter ? "مُسمِّع" : "سامع",
           counterpart: isReciter ? s.listenerLabel : s.studentLabel,
           pages: s.pages,
@@ -747,7 +756,7 @@ window.TaahudAdmin = (function () {
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [
-        new Date(row.createdAt).toLocaleString("ar-EG"),
+        new Date(sessionDisplayDate(row)).toLocaleDateString("ar-EG"),
         row.role,
         row.counterpart,
         row.pages,
