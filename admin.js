@@ -367,12 +367,43 @@ window.TaahudAdmin = (function () {
       downloadCsv("taahud-default-passwords.csv", ["code", "name", "default_password"],
         state.credentials.map((item) => [item.code, item.name, item.temporaryPassword || item.temporary_password]));
     });
-    document.getElementById("rotate-passwords-btn").addEventListener("click", async () => {
-      if (!window.confirm("سيتم ضبط كلمة المرور الافتراضية 123456789 لكل الحسابات التي لم تغيّرها بعد. استمر؟")) return;
-      const { data, error } = await state.client.rpc("rotate_unclaimed_student_passwords");
-      if (error) return showToast("roster-toast", "تعذر ضبط كلمات المرور", "error");
-      if (!data.length) return showToast("roster-toast", "لا توجد حسابات تحتاج إلى إعادة ضبط", "success");
-      showCredentials(data);
+    document.getElementById("reset-all-passwords-btn").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      if (!window.confirm(
+        "سيتم تغيير كلمة مرور كل الطلاب إلى 123456789 وإنهاء جلسات دخولهم الحالية. " +
+        "سيُطلب منهم تغييرها عند أول دخول. هل تريد الاستمرار؟"
+      )) return;
+
+      const confirmation = window.prompt('للتأكيد اكتب "123456789" كما هي:');
+      if (confirmation === null) return;
+      if (confirmation.trim() !== "123456789") {
+        showToast("roster-toast", "لم يتم التنفيذ لأن كلمة التأكيد غير صحيحة", "error");
+        return;
+      }
+
+      const reasonInput = window.prompt("اكتب سبب إعادة كل كلمات المرور (إلزامي):");
+      if (reasonInput === null) return;
+      const reason = reasonInput.trim();
+      if (!reason) {
+        showToast("roster-toast", "يجب كتابة سبب إعادة كلمات المرور", "error");
+        return;
+      }
+
+      button.disabled = true;
+      const { data, error } = await state.client.rpc("reset_all_student_passwords", { change_reason: reason });
+      button.disabled = false;
+
+      if (error) {
+        console.error("[Ta'ahud] Failed to reset all student passwords", error);
+        showToast("roster-toast", "حدث خطأ أثناء إعادة كلمات المرور", "error");
+        return;
+      }
+
+      showToast(
+        "roster-toast",
+        "تمت إعادة كلمة مرور " + formatNumber(data && data.resetStudents) + " طالب إلى 123456789",
+        "success"
+      );
     });
     document.getElementById("reset-all-points-btn").addEventListener("click", async (event) => {
       const button = event.currentTarget;

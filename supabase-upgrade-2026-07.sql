@@ -471,6 +471,38 @@ begin
 end;
 $$;
 
+create or replace function public.reset_all_student_passwords(change_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  reset_students bigint := 0;
+begin
+  if not public.taahud_is_admin() then raise exception 'admin_required' using errcode = 'P0001'; end if;
+  if trim(coalesce(change_reason,'')) = '' then raise exception 'reason_required' using errcode = 'P0001'; end if;
+
+  lock table public.students in share row exclusive mode;
+
+  update public.students
+  set password_hash = extensions.crypt('123456789', extensions.gen_salt('bf')),
+      password_changed_at = null;
+  get diagnostics reset_students = row_count;
+
+  delete from public.student_auth_sessions;
+
+  insert into public.admin_audit_log(admin_id,action,entity_type,new_data,reason)
+  values(
+    auth.uid(),'reset_all_passwords','student',
+    jsonb_build_object('resetStudents',reset_students,'temporaryPassword','123456789'),
+    trim(change_reason)
+  );
+
+  return jsonb_build_object('resetStudents',reset_students,'temporaryPassword','123456789');
+end;
+$$;
+
 create or replace function public.set_student_active(target_student_id uuid, next_active boolean, change_reason text default null)
 returns void
 language plpgsql
@@ -841,6 +873,7 @@ revoke execute on function public.taahud_is_admin() from public, anon, authentic
 grant execute on function public.taahud_is_admin() to authenticated;
 revoke execute on function public.create_student_with_temp_password(text,text) from public, anon;
 revoke execute on function public.reset_student_password(uuid) from public, anon;
+revoke execute on function public.reset_all_student_passwords(text) from public, anon;
 revoke execute on function public.set_student_active(uuid,boolean,text) from public, anon;
 revoke execute on function public.rotate_unclaimed_student_passwords() from public, anon;
 revoke execute on function public.admin_update_session(uuid,numeric,text,text,text,text,date,integer,integer,text) from public, anon;
@@ -856,6 +889,7 @@ grant execute on function public.get_student_profile(text) to anon, authenticate
 grant execute on function public.record_student_session(text,uuid,text,text,numeric,text,text,text,text,text,date) to anon, authenticated;
 grant execute on function public.create_student_with_temp_password(text,text) to authenticated;
 grant execute on function public.reset_student_password(uuid) to authenticated;
+grant execute on function public.reset_all_student_passwords(text) to authenticated;
 grant execute on function public.set_student_active(uuid,boolean,text) to authenticated;
 grant execute on function public.rotate_unclaimed_student_passwords() to authenticated;
 grant execute on function public.admin_update_session(uuid,numeric,text,text,text,text,date,integer,integer,text) to authenticated;

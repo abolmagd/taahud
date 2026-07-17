@@ -92,6 +92,9 @@ async function installMock(page, admin) {
         if (name === "admin_update_point_rules") {
           return Promise.resolve({ data: { updatedSessions: 2, oldTotalPoints: 36, newTotalPoints: 54 }, error: null });
         }
+        if (name === "reset_all_student_passwords") {
+          return Promise.resolve({ data: { resetStudents: mockStudents.length, temporaryPassword: "123456789" }, error: null });
+        }
         return Promise.resolve({ data: null, error: null });
       },
       auth: {
@@ -152,7 +155,9 @@ async function installMock(page, admin) {
         await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === window.__mockStudentCount);
         page.on("dialog", async (dialog) => {
           if (dialog.type() === "prompt") {
-            await dialog.accept(dialog.message().includes("للتأكيد") ? "تصفير" : "اختبار آلي");
+            const message = dialog.message();
+            await dialog.accept(message.includes("123456789") ? "123456789"
+              : message.includes("للتأكيد") ? "تصفير" : "اختبار آلي");
           } else {
             await dialog.accept();
           }
@@ -161,13 +166,17 @@ async function installMock(page, admin) {
         await page.waitForFunction(() => window.__rpcCalls.some((call) => call.name === "admin_reset_student_points"));
         await page.click("#reset-all-points-btn");
         await page.waitForFunction(() => window.__rpcCalls.some((call) => call.name === "admin_reset_all_points"));
+        await page.click("#reset-all-passwords-btn");
+        await page.waitForFunction(() => window.__rpcCalls.some((call) => call.name === "reset_all_student_passwords"));
         await page.evaluate(() => {
           const studentCall = window.__rpcCalls.find((call) => call.name === "admin_reset_student_points");
           const allCall = window.__rpcCalls.find((call) => call.name === "admin_reset_all_points");
+          const passwordCall = window.__rpcCalls.find((call) => call.name === "reset_all_student_passwords");
           window.__adminPointResetAudit = Boolean(
             studentCall && studentCall.args.target_student_id && studentCall.args.change_reason === "اختبار آلي" &&
             allCall && allCall.args.change_reason === "اختبار آلي"
           );
+          window.__allPasswordResetAudit = Boolean(passwordCall && passwordCall.args.change_reason === "اختبار آلي");
         });
         await page.click('[data-tab="settings"]');
         await page.fill("#daily-checkin-points", "7");
@@ -202,6 +211,7 @@ async function installMock(page, admin) {
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
         atRiskDialogWork: window.__atRiskDialogAudit !== false,
+        allPasswordResetWork: window.__allPasswordResetAudit !== false,
       }));
       results.push({ kind, viewport: viewport.name, errors, metrics });
       await page.close();
@@ -213,7 +223,7 @@ async function installMock(page, admin) {
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
     || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
-    || !result.metrics.atRiskDialogWork)) process.exitCode = 1;
+    || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;
 })().catch((error) => {
   console.error(error);
   process.exit(1);

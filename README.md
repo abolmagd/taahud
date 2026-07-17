@@ -21,6 +21,8 @@ project, its own Vercel deployment.
    for resetting one student's points or all students' points.
    Run `supabase-recalculate-historical-points.sql` once to make point-rule
    changes recalculate all existing sessions.
+   Run `supabase-reset-all-student-passwords.sql` once to immediately reset
+   every student password to `123456789` and enable the matching admin action.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
@@ -78,6 +80,8 @@ Deploy the project root to Vercel as a static site (no build command needed).
 - [ ] Admin login rejects a wrong password and accepts the right one.
 - [ ] Admin can add/deactivate a student, reset the password to `123456789`, and
       a deactivated student disappears from the check-in dropdowns.
+- [ ] Admin can reset every student password to `123456789`; existing student
+      sessions end and the forced password-change screen appears next login.
 - [ ] Admin can reset one student's points or all points without deleting any
       session, and each action appears in `admin_audit_log` with its reason.
 - [ ] Changing point rules recalculates all existing non-deleted sessions and
