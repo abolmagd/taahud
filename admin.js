@@ -4,7 +4,7 @@ window.TaahudAdmin = (function () {
   const ADMIN_EMAIL = "admin@taahud.local";
   const LIVE_REFRESH_DEBOUNCE_MS = 350;
   const LIVE_POLL_INTERVAL_MS = 15000;
-  const state = { client: null };
+  const state = { client: null, credentials: [], logPage: 1, logPageSize: 25, filteredLogSessions: [] };
   let adminChangesChannel = null;
   let liveRefreshTimer = null;
   let pollingTimer = null;
@@ -22,6 +22,7 @@ window.TaahudAdmin = (function () {
     toast.textContent = message;
     toast.className = "toast toast-" + (kind || "success");
     toast.hidden = false;
+    toast.setAttribute("role", kind === "error" ? "alert" : "status");
     setTimeout(() => {
       toast.hidden = true;
     }, 4000);
@@ -39,20 +40,19 @@ window.TaahudAdmin = (function () {
 
   function switchTab(name) {
     document.querySelectorAll(".tabs > .tab[data-tab]").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.tab === name);
+      const active = btn.dataset.tab === name;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", String(active));
     });
     ["overview", "roster", "settings", "stats", "log"].forEach((tab) => {
       document.getElementById("tab-" + tab).hidden = tab !== name;
     });
     document.getElementById("tab-student-detail").hidden = true;
-    if (name === "overview") refreshOverview();
-    if (name === "roster") refreshRoster();
+    const panel = document.getElementById("tab-" + name);
+    panel.setAttribute("tabindex", "-1");
+    panel.focus({ preventScroll: true });
     if (name === "settings") refreshSettingsForm();
-    if (name === "stats") refreshStats();
-    if (name === "log") {
-      populateLogStudentFilter();
-      refreshLog();
-    }
+    else refreshActivePanels().catch((error) => console.error("[Ta'ahud] Failed to switch admin tab", error));
   }
 
   async function loadActiveStudents() {
@@ -122,10 +122,14 @@ window.TaahudAdmin = (function () {
       toggleBtn.className = "btn btn-secondary";
       toggleBtn.textContent = student.active ? "إيقاف" : "تفعيل";
       toggleBtn.addEventListener("click", async () => {
-        const { error } = await state.client
-          .from("students")
-          .update({ active: !student.active })
-          .eq("id", student.id);
+        const action = student.active ? "إيقاف" : "تفعيل";
+        if (!window.confirm(action + " حساب الطالب " + student.code + "؟")) return;
+        const reason = window.prompt("سبب " + action + " الحساب (اختياري):") || null;
+        const { error } = await state.client.rpc("set_student_active", {
+          target_student_id: student.id,
+          next_active: !student.active,
+          change_reason: reason,
+        });
         if (error) {
           showToast("roster-toast", "حدث خطأ أثناء التحديث", "error");
           return;
@@ -139,14 +143,12 @@ window.TaahudAdmin = (function () {
       resetPasswordBtn.textContent = "إعادة كلمة المرور";
       resetPasswordBtn.addEventListener("click", async () => {
         const confirmed = window.confirm(
-          "هل تريد إعادة كلمة مرور الطالب " +
-            student.code +
-            " إلى 123456789؟ سيُطلب منه تغييرها عند أول دخول."
+          "إنشاء كلمة مرور مؤقتة جديدة للطالب " + student.code + "؟ ستنتهي أي جلسة مفتوحة له."
         );
         if (!confirmed) return;
 
         resetPasswordBtn.disabled = true;
-        const { error } = await state.client.rpc("reset_student_password", {
+        const { data, error } = await state.client.rpc("reset_student_password", {
           target_student_id: student.id,
         });
         resetPasswordBtn.disabled = false;
@@ -157,7 +159,8 @@ window.TaahudAdmin = (function () {
           return;
         }
 
-        showToast("roster-toast", "تمت إعادة كلمة المرور إلى 123456789", "success");
+        showCredentials([data]);
+        showToast("roster-toast", "تم إنشاء كلمة مرور مؤقتة جديدة", "success");
         await refreshRoster();
       });
       actionCell.appendChild(resetPasswordBtn);
@@ -228,8 +231,15 @@ window.TaahudAdmin = (function () {
   }
 
   function wireTabs() {
-    document.querySelectorAll(".tabs > .tab[data-tab]").forEach((btn) => {
+    const tabs = Array.from(document.querySelectorAll(".tabs > .tab[data-tab]"));
+    tabs.forEach((btn, index) => {
       btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+      btn.addEventListener("keydown", (event) => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        event.preventDefault();
+        const delta = event.key === 'ArrowLeft' ? 1 : -1;
+        tabs[(index + delta + tabs.length) % tabs.length].focus();
+      });
     });
   }
 
@@ -239,7 +249,10 @@ window.TaahudAdmin = (function () {
       const code = document.getElementById("new-code").value.trim();
       const name = document.getElementById("new-name").value.trim();
       if (!code || !name) return;
-      const { error } = await state.client.from("students").insert({ code, name, active: true });
+      const { data, error } = await state.client.rpc("create_student_with_temp_password", {
+        p_code: code,
+        p_name: name,
+      });
       if (error) {
         console.error("[Ta'ahud] Failed to add student", error);
         showToast("roster-toast", "حدث خطأ أثناء الإضافة", "error");
@@ -247,6 +260,77 @@ window.TaahudAdmin = (function () {
       }
       document.getElementById("new-code").value = "";
       document.getElementById("new-name").value = "";
+      showCredentials([data]);
+      await refreshRoster();
+    });
+  }
+
+  function escapeCsv(value) {
+    const text = String(value == null ? "" : value);
+    return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  }
+
+  function downloadCsv(filename, headers, rows) {
+    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function showCredentials(credentials) {
+    state.credentials = (credentials || []).filter(Boolean);
+    const body = document.getElementById("credentials-body");
+    body.innerHTML = "";
+    state.credentials.forEach((item) => {
+      const row = document.createElement("tr");
+      [item.code, item.name, item.temporaryPassword || item.temporary_password].forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value || "";
+        row.appendChild(cell);
+      });
+      body.appendChild(row);
+    });
+    document.getElementById("credentials-dialog").showModal();
+  }
+
+  function parseStudentCsv(text) {
+    return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
+      const cells = line.split(",").map((cell) => cell.trim().replace(/^"|"$/g, ""));
+      if (index === 0 && /code|كود/i.test(cells[0])) return null;
+      return { code: cells[0], name: cells.slice(1).join(" ") };
+    }).filter((row) => row && row.code && row.name);
+  }
+
+  function wireRosterTools() {
+    document.getElementById("close-credentials-btn").addEventListener("click", () => document.getElementById("credentials-dialog").close());
+    document.getElementById("export-credentials-btn").addEventListener("click", () => {
+      downloadCsv("taahud-temporary-passwords.csv", ["code", "name", "temporary_password"],
+        state.credentials.map((item) => [item.code, item.name, item.temporaryPassword || item.temporary_password]));
+    });
+    document.getElementById("rotate-passwords-btn").addEventListener("click", async () => {
+      if (!window.confirm("سيتم تغيير كلمات المرور لكل الحسابات التي لم تغيّر كلمة المرور بعد. استمر؟")) return;
+      const { data, error } = await state.client.rpc("rotate_unclaimed_student_passwords");
+      if (error) return showToast("roster-toast", "تعذر تأمين كلمات المرور", "error");
+      if (!data.length) return showToast("roster-toast", "لا توجد حسابات قديمة تحتاج إلى تأمين", "success");
+      showCredentials(data);
+    });
+    document.getElementById("import-students-btn").addEventListener("click", async () => {
+      const file = document.getElementById("bulk-student-file").files[0];
+      if (!file) return showToast("roster-toast", "اختر ملف CSV أولًا", "error");
+      const rows = parseStudentCsv(await file.text());
+      const credentials = [];
+      for (const row of rows) {
+        const { data, error } = await state.client.rpc("create_student_with_temp_password", { p_code: row.code, p_name: row.name });
+        if (error) {
+          showToast("roster-toast", "توقف الاستيراد عند الكود " + row.code, "error");
+          break;
+        }
+        credentials.push(data);
+      }
+      if (credentials.length) showCredentials(credentials);
       await refreshRoster();
     });
   }
@@ -286,13 +370,20 @@ window.TaahudAdmin = (function () {
     return !error;
   }
 
-  function applyCurrentPointRules(sessions, pointRules) {
-    return window.TaahudStats.withEffectivePoints(sessions, pointRules).map((item) =>
-      Object.assign({}, item.session, {
-        pointsAwarded: item.pointsAwarded,
-        listenerPointsAwarded: item.listenerPointsAwarded,
-      })
-    );
+  function cairoDate() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+    return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
+  }
+
+  function setAdminLoading(loading) {
+    document.getElementById("admin-loading").hidden = !loading;
+    if (!loading) {
+      document.getElementById("admin-last-updated").textContent =
+        "آخر تحديث " + new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+    }
   }
 
   function activeTabName() {
@@ -301,16 +392,21 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshActivePanels() {
+    setAdminLoading(true);
     const tab = activeTabName();
-    if (tab === "overview") await refreshOverview();
-    if (tab === "roster") await refreshRoster();
-    if (tab === "stats") await refreshStats();
-    if (tab === "log") {
-      await populateLogStudentFilter();
-      await refreshLog();
-    }
-    if (!document.getElementById("tab-student-detail").hidden && currentDetailStudent) {
-      await showStudentDetail(currentDetailStudent);
+    try {
+      if (tab === "overview") await refreshOverview();
+      if (tab === "roster") await refreshRoster();
+      if (tab === "stats") await refreshStats();
+      if (tab === "log") {
+        await populateLogStudentFilter();
+        await refreshLog();
+      }
+      if (!document.getElementById("tab-student-detail").hidden && currentDetailStudent) {
+        await showStudentDetail(currentDetailStudent);
+      }
+    } finally {
+      setAdminLoading(false);
     }
   }
 
@@ -384,26 +480,41 @@ window.TaahudAdmin = (function () {
   let statsSortColumn = "pointsEarned";
   let statsSortDirection = "desc";
 
+  async function fetchAllSessionRows(selectClause, ordered) {
+    const pageSize = 1000;
+    const rows = [];
+    for (let offset = 0; ; offset += pageSize) {
+      let query = state.client.from("sessions").select(selectClause).is("deleted_at", null);
+      if (ordered) {
+        query = query.order("session_date", { ascending: false }).order("created_at", { ascending: false });
+      }
+      const { data, error } = await query.range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+    return rows;
+  }
+
   async function loadSessionsForStats() {
-    const { data, error } = await state.client
-      .from("sessions")
-      .select(
+    try {
+      const data = await fetchAllSessionRows(
         "student_id, listener_type, listener_student_id, pages, points_awarded, listener_points_awarded, session_date, created_at"
       );
-    if (error) {
+      return data.map((row) => ({
+        studentId: row.student_id,
+        listenerType: row.listener_type,
+        listenerStudentId: row.listener_student_id,
+        pages: row.pages,
+        pointsAwarded: row.points_awarded,
+        listenerPointsAwarded: row.listener_points_awarded,
+        sessionDate: row.session_date,
+        createdAt: row.created_at,
+      }));
+    } catch (error) {
       console.error("[Ta'ahud] Failed to load sessions", error);
       return [];
     }
-    return data.map((row) => ({
-      studentId: row.student_id,
-      listenerType: row.listener_type,
-      listenerStudentId: row.listener_student_id,
-      pages: row.pages,
-      pointsAwarded: row.points_awarded,
-      listenerPointsAwarded: row.listener_points_awarded,
-      sessionDate: row.session_date,
-      createdAt: row.created_at,
-    }));
   }
 
   function renderStatsTable(rows) {
@@ -411,7 +522,7 @@ window.TaahudAdmin = (function () {
     body.innerHTML = "";
     rows.forEach((row) => {
       const tr = document.createElement("tr");
-      [row.name, row.sessionsRecited, row.pagesRecited, row.sessionsListened, row.pagesListened, row.pointsEarned].forEach(
+      [row.name, row.active ? "نشط" : "موقوف", row.sessionsRecited, row.pagesRecited, row.sessionsListened, row.pagesListened, row.pointsEarned].forEach(
         (value) => {
           const td = document.createElement("td");
           td.textContent = value;
@@ -428,36 +539,41 @@ window.TaahudAdmin = (function () {
     document.getElementById("total-points").textContent = totals.totalPoints;
     document.getElementById("total-active-students").textContent = totals.activeStudents;
     document.getElementById("total-average-pages").textContent = formatNumber(totals.averagePages);
+    document.getElementById("total-median-pages").textContent = formatNumber(totals.medianPages || 0);
     document.getElementById("stats-student-listener-sessions").textContent = totals.studentListenerSessions;
     document.getElementById("stats-outside-sessions").textContent = totals.outsideSessions;
     document.getElementById("stats-listening-only-sessions").textContent = totals.listeningOnlySessions;
   }
 
   async function refreshStats() {
-    const [students, rawSessions, pointRules] = await Promise.all([
-      loadActiveStudents(),
+    const [students, sessions] = await Promise.all([
+      loadAllStudents(),
       loadSessionsForStats(),
-      loadPointRules(),
     ]);
-    const sessions = applyCurrentPointRules(rawSessions, pointRules);
-    const aggregated = window.TaahudStats.aggregateStudentStats(students, sessions, statsPeriod, new Date());
+    const now = cairoDate();
+    const activeById = new Map(students.map((student) => [student.id, student.active]));
+    const aggregated = window.TaahudStats.aggregateStudentStats(students, sessions, statsPeriod, now)
+      .map((row) => Object.assign(row, { active: activeById.get(row.studentId) !== false }));
     const sorted = window.TaahudStats.sortStats(aggregated, statsSortColumn, statsSortDirection);
     renderStatsTable(sorted);
-    renderStatsTotals(window.TaahudStats.aggregateTotals(sessions, statsPeriod, new Date()));
+    renderStatsTotals(window.TaahudStats.aggregateTotals(sessions, statsPeriod, now));
   }
 
   function wireStatsControls() {
     document.querySelectorAll("#period-tabs > .tab").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll("#period-tabs > .tab").forEach((b) => b.classList.toggle("active", b === btn));
+        document.querySelectorAll("#period-tabs > .tab").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+          b.setAttribute("aria-pressed", String(b === btn));
+        });
         statsPeriod = btn.dataset.period;
         refreshStats();
       });
     });
 
-    document.querySelectorAll("#stats-table th[data-col]").forEach((th) => {
-      th.addEventListener("click", () => {
-        const column = th.dataset.col;
+    document.querySelectorAll("#stats-table .sort-button[data-col]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const column = button.dataset.col;
         if (statsSortColumn === column) {
           statsSortDirection = statsSortDirection === "asc" ? "desc" : "asc";
         } else {
@@ -472,44 +588,37 @@ window.TaahudAdmin = (function () {
   let allLogSessions = [];
 
   async function loadSessionsForLog() {
-    const { data, error } = await state.client
-      .from("sessions")
-      .select(
+    try {
+      const data = await fetchAllSessionRows(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
           "points_awarded, listener_points_awarded, session_date, session_timing, surah_range, satisfaction, notes, " +
-          "student:students!student_id(code, name), listener:students!listener_student_id(code, name)"
-      )
-      .order("session_date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (error) {
+          "student:students!student_id(code, name), listener:students!listener_student_id(code, name)",
+        true
+      );
+      return data.map((row) => ({
+        id: row.id,
+        studentId: row.student_id,
+        listenerType: row.listener_type,
+        listenerStudentId: row.listener_student_id,
+        method: row.method,
+        createdAt: row.created_at,
+        sessionDate: row.session_date,
+        sessionTiming: row.session_timing,
+        pages: row.pages,
+        pointsAwarded: row.points_awarded,
+        listenerPointsAwarded: row.listener_points_awarded,
+        surahRange: row.surah_range,
+        satisfaction: row.satisfaction,
+        notes: row.notes,
+        studentLabel: row.student ? row.student.code + " — " + row.student.name : "",
+        listenerLabel: row.listener_type === "outside" ? "شخص آخر خارج تعاهُد"
+          : row.listener_type === "listening_only" ? "وِرد استماع"
+          : row.listener ? row.listener.code + " — " + row.listener.name : "",
+      }));
+    } catch (error) {
       console.error("[Ta'ahud] Failed to load session log", error);
       return [];
     }
-    return data.map((row) => ({
-      id: row.id,
-      studentId: row.student_id,
-      listenerType: row.listener_type,
-      listenerStudentId: row.listener_student_id,
-      method: row.method,
-      createdAt: row.created_at,
-      sessionDate: row.session_date,
-      sessionTiming: row.session_timing,
-      pages: row.pages,
-      pointsAwarded: row.points_awarded,
-      listenerPointsAwarded: row.listener_points_awarded,
-      surahRange: row.surah_range,
-      satisfaction: row.satisfaction,
-      notes: row.notes,
-      studentLabel: row.student ? row.student.code + " — " + row.student.name : "",
-      listenerLabel:
-        row.listener_type === "outside"
-          ? "شخص آخر خارج تعاهُد"
-          : row.listener_type === "listening_only"
-          ? "وِرد استماع"
-          : row.listener
-          ? row.listener.code + " — " + row.listener.name
-          : "",
-    }));
   }
 
   function setText(id, value) {
@@ -706,10 +815,9 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshOverview() {
-    const [students, rawSessions, pointRules] = await Promise.all([loadAllStudents(), loadSessionsForLog(), loadPointRules()]);
-    const sessions = applyCurrentPointRules(rawSessions, pointRules);
+    const [students, sessions] = await Promise.all([loadAllStudents(), loadSessionsForLog()]);
     const activeStudents = students.filter((student) => student.active);
-    const now = new Date();
+    const now = cairoDate();
     const todayTotals = window.TaahudStats.aggregateTotals(sessions, "day", now);
     const weekTotals = window.TaahudStats.aggregateTotals(sessions, "week", now);
 
@@ -722,6 +830,38 @@ window.TaahudAdmin = (function () {
     setText("overview-total-students", students.length);
     setText("overview-active-students", activeStudents.length + " نشط");
 
+    const currentWeekStart = window.TaahudStats.periodBounds("week", now).start;
+    const previousWeekRef = new Date(currentWeekStart);
+    previousWeekRef.setDate(previousWeekRef.getDate() - 1);
+    const previousWeekTotals = window.TaahudStats.aggregateTotals(sessions, "week", previousWeekRef);
+    const change = previousWeekTotals.totalSessions
+      ? Math.round(((weekTotals.totalSessions - previousWeekTotals.totalSessions) / previousWeekTotals.totalSessions) * 100)
+      : weekTotals.totalSessions ? 100 : 0;
+    setText("overview-week-change", (change > 0 ? "+" : "") + change + "%");
+    setText("overview-week-change-label", change > 0 ? "تحسن" : change < 0 ? "انخفاض" : "لا تغيير");
+
+    const recentCutoff = new Date(now);
+    recentCutoff.setDate(recentCutoff.getDate() - 6);
+    const recentSessions = sessions.filter((session) => new Date(sessionDisplayDate(session)) >= recentCutoff);
+    const recentIds = new Set();
+    recentSessions.forEach((session) => {
+      recentIds.add(session.studentId);
+      if (session.listenerType === "student") recentIds.add(session.listenerStudentId);
+    });
+    const atRisk = activeStudents.filter((student) => !recentIds.has(student.id));
+    setText("overview-at-risk-count", atRisk.length);
+    const atRiskContainer = document.getElementById("overview-at-risk-students");
+    atRiskContainer.innerHTML = "";
+    if (!atRisk.length) clearAndEmpty(atRiskContainer, "كل الطلاب لديهم نشاط خلال آخر ٧ أيام");
+    atRisk.slice(0, 8).forEach((student) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "compact-item compact-item-button";
+      item.textContent = student.code + " - " + student.name;
+      item.addEventListener("click", () => showStudentDetail(student));
+      atRiskContainer.appendChild(item);
+    });
+
     renderDailyActivity(sessions, now);
     renderTopStudents(window.TaahudStats.topStudents(activeStudents, sessions, "month", now, 6));
     renderRecentSessions(sessions);
@@ -731,6 +871,17 @@ window.TaahudAdmin = (function () {
       window.TaahudStats.aggregateByField(sessions, "month", now, "satisfaction", "غير محدد"),
       "sessions"
     );
+    renderBarList("overview-streaks", window.TaahudStats.streakDistribution(activeStudents, sessions, now), "sessions");
+
+    const validMethods = new Set(["تليجرام", "واتس", "مكالمة هاتفية", "جوجل ميت", "مقابلة", "استماع", "أخرى"]);
+    const validSatisfaction = new Set(["نعم تماما", "يحتاج إلى مزيد من الضبط", "وردي كان ورد استماع"]);
+    const qualityIssues = sessions.reduce((count, session) => count + (
+      Number(session.pages) <= 0 || Number(session.pages) > 100 ||
+      !validMethods.has(session.method) || !validSatisfaction.has(session.satisfaction) ||
+      (session.listenerType === "student" && session.studentId === session.listenerStudentId) ? 1 : 0
+    ), 0);
+    setText("overview-quality-issues", qualityIssues);
+    setText("overview-quality-label", qualityIssues ? "راجع هذه السجلات من تبويب السجلات" : "لا توجد مشكلات مكتشفة");
   }
 
   function renderLogTable(rows) {
@@ -755,25 +906,60 @@ window.TaahudAdmin = (function () {
         applyBrandTextIfNeeded(td, value);
         tr.appendChild(td);
       });
+      const actionCell = document.createElement("td");
+      actionCell.className = "table-actions";
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "btn btn-secondary btn-compact";
+      editButton.textContent = "تعديل";
+      editButton.addEventListener("click", () => openSessionEditor(row));
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "btn btn-danger btn-compact";
+      deleteButton.textContent = "حذف";
+      deleteButton.addEventListener("click", () => deleteSession(row));
+      actionCell.append(editButton, deleteButton);
+      tr.appendChild(actionCell);
       body.appendChild(tr);
     });
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 11;
+      td.className = "empty-cell";
+      td.textContent = "لا توجد سجلات مطابقة";
+      tr.appendChild(td);
+      body.appendChild(tr);
+    }
   }
 
   function applyLogFilters() {
-    const studentId = document.getElementById("log-filter-student").value;
-    const method = document.getElementById("log-filter-method").value;
-    const filtered = window.TaahudSessionLog.filterSessions(allLogSessions, { studentId, method });
-    renderLogTable(filtered);
+    const filters = {
+      studentId: document.getElementById("log-filter-student").value,
+      method: document.getElementById("log-filter-method").value,
+      listenerType: document.getElementById("log-filter-type").value,
+      search: document.getElementById("log-filter-search").value,
+      from: document.getElementById("log-filter-from").value,
+      to: document.getElementById("log-filter-to").value,
+    };
+    state.filteredLogSessions = window.TaahudSessionLog.filterSessions(allLogSessions, filters);
+    const totalPages = Math.max(1, Math.ceil(state.filteredLogSessions.length / state.logPageSize));
+    state.logPage = Math.min(state.logPage, totalPages);
+    const start = (state.logPage - 1) * state.logPageSize;
+    renderLogTable(state.filteredLogSessions.slice(start, start + state.logPageSize));
+    setText("log-results-summary", state.filteredLogSessions.length + " سجل");
+    setText("log-page-label", "صفحة " + state.logPage + " من " + totalPages);
+    document.getElementById("log-prev-btn").disabled = state.logPage <= 1;
+    document.getElementById("log-next-btn").disabled = state.logPage >= totalPages;
   }
 
   async function refreshLog() {
-    const [sessions, pointRules] = await Promise.all([loadSessionsForLog(), loadPointRules()]);
-    allLogSessions = applyCurrentPointRules(sessions, pointRules);
+    allLogSessions = await loadSessionsForLog();
     applyLogFilters();
   }
 
   async function populateLogStudentFilter() {
-    const students = await loadActiveStudents();
+    const students = await loadAllStudents();
     const select = document.getElementById("log-filter-student");
     select.innerHTML = '<option value="">كل الطلاب</option>';
     students.forEach((s) => {
@@ -785,8 +971,63 @@ window.TaahudAdmin = (function () {
   }
 
   function wireLogControls() {
-    document.getElementById("log-filter-student").addEventListener("change", applyLogFilters);
-    document.getElementById("log-filter-method").addEventListener("change", applyLogFilters);
+    ["log-filter-student", "log-filter-method", "log-filter-type", "log-filter-from", "log-filter-to"].forEach((id) => {
+      document.getElementById(id).addEventListener("change", () => { state.logPage = 1; applyLogFilters(); });
+    });
+    document.getElementById("log-filter-search").addEventListener("input", () => { state.logPage = 1; applyLogFilters(); });
+    document.getElementById("log-prev-btn").addEventListener("click", () => { state.logPage -= 1; applyLogFilters(); });
+    document.getElementById("log-next-btn").addEventListener("click", () => { state.logPage += 1; applyLogFilters(); });
+    document.getElementById("export-log-btn").addEventListener("click", () => {
+      downloadCsv("taahud-sessions.csv",
+        ["date","student","listener","pages","range","method","reciter_points","listener_points","satisfaction","notes"],
+        state.filteredLogSessions.map((row) => [row.sessionDate,row.studentLabel,row.listenerLabel,row.pages,row.surahRange,row.method,row.pointsAwarded,row.listenerPointsAwarded,row.satisfaction,row.notes]));
+    });
+    document.getElementById("cancel-edit-btn").addEventListener("click", () => document.getElementById("session-edit-dialog").close());
+    document.getElementById("session-edit-form").addEventListener("submit", saveSessionEdit);
+  }
+
+  function openSessionEditor(session) {
+    document.getElementById("edit-session-id").value = session.id;
+    document.getElementById("edit-session-date").value = session.sessionDate;
+    document.getElementById("edit-pages").value = session.pages;
+    document.getElementById("edit-method").value = session.method;
+    document.getElementById("edit-satisfaction").value = session.satisfaction;
+    document.getElementById("edit-reciter-points").value = session.pointsAwarded || 0;
+    document.getElementById("edit-listener-points").value = session.listenerPointsAwarded || 0;
+    document.getElementById("edit-surah-range").value = session.surahRange || "";
+    document.getElementById("edit-notes").value = session.notes || "";
+    document.getElementById("edit-reason").value = "";
+    document.getElementById("session-edit-dialog").showModal();
+  }
+
+  async function saveSessionEdit(event) {
+    event.preventDefault();
+    const { error } = await state.client.rpc("admin_update_session", {
+      target_session_id: document.getElementById("edit-session-id").value,
+      p_pages: Number(document.getElementById("edit-pages").value),
+      p_surah_range: document.getElementById("edit-surah-range").value || null,
+      p_method: document.getElementById("edit-method").value,
+      p_satisfaction: document.getElementById("edit-satisfaction").value,
+      p_notes: document.getElementById("edit-notes").value || null,
+      p_session_date: document.getElementById("edit-session-date").value,
+      p_points_awarded: Number(document.getElementById("edit-reciter-points").value),
+      p_listener_points_awarded: Number(document.getElementById("edit-listener-points").value),
+      change_reason: document.getElementById("edit-reason").value,
+    });
+    if (error) return showToast("log-toast", "تعذر حفظ التعديل. راجع القيم والسبب", "error");
+    document.getElementById("session-edit-dialog").close();
+    showToast("log-toast", "تم تعديل الجلسة وتسجيل التغيير", "success");
+    await refreshLog();
+  }
+
+  async function deleteSession(session) {
+    const reason = window.prompt("اكتب سبب حذف جلسة " + session.studentLabel + ":");
+    if (!reason) return;
+    if (!window.confirm("تأكيد حذف الجلسة من كل الإحصائيات والسجلات؟")) return;
+    const { error } = await state.client.rpc("admin_delete_session", { target_session_id: session.id, change_reason: reason });
+    if (error) return showToast("log-toast", "تعذر حذف الجلسة", "error");
+    showToast("log-toast", "تم حذف الجلسة مع الاحتفاظ بسجل المراجعة", "success");
+    await refreshLog();
   }
 
   // Sessions where the given student appears either as reciter or as
@@ -839,13 +1080,19 @@ window.TaahudAdmin = (function () {
 
   async function showStudentDetail(student) {
     currentDetailStudent = student;
-    document.getElementById("tab-roster").hidden = true;
+    ["overview", "roster", "settings", "stats", "log"].forEach((name) => {
+      document.getElementById("tab-" + name).hidden = true;
+    });
+    document.querySelectorAll(".tabs > .tab[data-tab]").forEach((button) => {
+      const active = button.dataset.tab === "roster";
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
     document.getElementById("tab-student-detail").hidden = false;
     document.getElementById("student-detail-title").textContent = student.code + " — " + student.name;
 
-    const [rawSessions, pointRules] = await Promise.all([loadSessionsForLog(), loadPointRules()]);
-    const sessions = applyCurrentPointRules(rawSessions, pointRules);
-    const stats = window.TaahudStats.aggregateStudentStats([student], sessions, "all", new Date())[0];
+    const sessions = await loadSessionsForLog();
+    const stats = window.TaahudStats.aggregateStudentStats([student], sessions, "all", cairoDate())[0];
     document.getElementById("student-detail-sessions-recited").textContent = stats.sessionsRecited;
     document.getElementById("student-detail-pages-recited").textContent = stats.pagesRecited;
     document.getElementById("student-detail-sessions-listened").textContent = stats.sessionsListened;
@@ -859,6 +1106,7 @@ window.TaahudAdmin = (function () {
     currentDetailStudent = null;
     document.getElementById("tab-student-detail").hidden = true;
     document.getElementById("tab-roster").hidden = false;
+    document.getElementById("tab-roster").focus({ preventScroll: true });
   }
 
   function wireStudentDetail() {
@@ -873,6 +1121,7 @@ window.TaahudAdmin = (function () {
     wireLogin();
     wireTabs();
     wireAddStudent();
+    wireRosterTools();
     wireRosterSearch();
     wireStudentDetail();
     wireSettings();
@@ -884,11 +1133,17 @@ window.TaahudAdmin = (function () {
       data: { session },
     } = await client.auth.getSession();
 
-    if (session) {
+    if (session && session.user && session.user.email === ADMIN_EMAIL) {
       showDashboard();
       startAdminLiveUpdates();
-      await refreshOverview();
+      setAdminLoading(true);
+      try {
+        await refreshOverview();
+      } finally {
+        setAdminLoading(false);
+      }
     } else {
+      if (session) await client.auth.signOut();
       showLogin();
     }
   }

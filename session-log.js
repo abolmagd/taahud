@@ -22,10 +22,23 @@
       if (f.method && s.method !== f.method) {
         return false;
       }
-      if (f.from && new Date(s.createdAt) < new Date(f.from)) {
+      if (f.listenerType && s.listenerType !== f.listenerType) {
         return false;
       }
-      if (f.to && new Date(s.createdAt) >= new Date(f.to)) {
+      const effectiveDate = String(s.sessionDate || s.createdAt || "").slice(0, 10);
+      if (f.from && effectiveDate < f.from) {
+        return false;
+      }
+      if (f.to && effectiveDate > f.to) {
+        return false;
+      }
+      const query = String(f.search || "").trim().toLocaleLowerCase("ar");
+      if (query) {
+        const haystack = [s.studentLabel, s.listenerLabel, s.notes, s.surahRange, s.method]
+          .filter(Boolean).join(" ").toLocaleLowerCase("ar");
+        if (!haystack.includes(query)) return false;
+      }
+      if (s.deletedAt) {
         return false;
       }
       return true;

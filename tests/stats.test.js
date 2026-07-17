@@ -11,6 +11,8 @@ const {
   aggregateByField,
   topStudents,
   inactiveStudents,
+  studentCurrentStreak,
+  streakDistribution,
 } = require("../stats.js");
 
 // ─── periodBounds ───
@@ -221,6 +223,7 @@ test("aggregateTotals: sums sessions/pages/points across everyone and counts dis
     totalReciterPoints: 33,
     totalListenerPoints: 16,
     averagePages: 3,
+    medianPages: 3,
     studentListenerSessions: 2,
     outsideSessions: 0,
     listeningOnlySessions: 1,
@@ -237,6 +240,7 @@ test("aggregateTotals: empty session list returns all zeros", () => {
     totalReciterPoints: 0,
     totalListenerPoints: 0,
     averagePages: 0,
+    medianPages: 0,
     studentListenerSessions: 0,
     outsideSessions: 0,
     listeningOnlySessions: 0,
@@ -402,4 +406,18 @@ test("topStudents and inactiveStudents: expose ranked dashboard slices", () => {
   assert.deepEqual(inactiveStudents(students, sessions, "day", new Date(2026, 6, 8), 2).map((s) => s.studentId), [
     "s3",
   ]);
+});
+
+test("studentCurrentStreak and streakDistribution group current continuity", () => {
+  const students = [{ id: "s1" }, { id: "s2" }, { id: "s3" }];
+  const sessions = [
+    { studentId: "s1", sessionDate: "2026-07-17" },
+    { studentId: "s1", sessionDate: "2026-07-16" },
+    { studentId: "s2", sessionDate: "2026-07-15" },
+    { studentId: "x", listenerType: "student", listenerStudentId: "s3", sessionDate: "2026-07-17" },
+  ];
+  const reference = new Date(2026, 6, 17);
+  assert.equal(studentCurrentStreak("s1", sessions, reference), 2);
+  assert.equal(studentCurrentStreak("s2", sessions, reference), 0);
+  assert.deepEqual(streakDistribution(students, sessions, reference).map((group) => group.sessions), [1, 2, 0, 0]);
 });

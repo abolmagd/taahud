@@ -9,44 +9,46 @@
 </head>
 <body>
   <div class="page">
-    <header class="app-header">
+    <header class="app-header" id="public-app-header">
       <img src="assets/logo.png" alt="تعاهُد" class="app-logo" />
       <h1 class="brand-word">تعاهُد</h1>
       <p class="muted">سجّل ما تم تسميعه أو الاستماع إليه</p>
     </header>
 
     <main class="card login-screen" id="student-login-card">
-      <form id="student-login-form" novalidate>
+      <form id="student-login-form">
         <div class="form-group">
           <label for="login-code">الكود الخاص بك</label>
-          <input type="text" id="login-code" autocomplete="username" required />
+          <input type="text" id="login-code" autocomplete="username" required aria-describedby="login-code-error" />
+          <span class="field-error" id="login-code-error" hidden></span>
         </div>
         <div class="form-group">
           <label for="login-password">كلمة المرور</label>
-          <input type="password" id="login-password" autocomplete="current-password" required />
+          <input type="password" id="login-password" autocomplete="current-password" required aria-describedby="login-password-error" />
+          <span class="field-error" id="login-password-error" hidden></span>
         </div>
         <button type="submit" class="btn btn-primary" id="student-login-btn">دخول</button>
       </form>
       <p class="login-note">
-        كلمة المرور الافتراضية لأول تسجيل هي <strong dir="ltr">123456789</strong>
+        استخدم كلمة المرور المؤقتة التي استلمتها من الإدارة. ستغيّرها عند أول دخول.
       </p>
-      <div id="login-toast" class="toast" hidden></div>
+      <div id="login-toast" class="toast" role="status" aria-live="polite" hidden></div>
     </main>
 
     <section class="card login-screen" id="force-password-card" hidden>
       <h2>تغيير كلمة المرور</h2>
-      <form id="force-password-form" novalidate>
+      <form id="force-password-form">
         <div class="form-group">
           <label for="new-student-password">كلمة المرور الجديدة</label>
-          <input type="password" id="new-student-password" autocomplete="new-password" minlength="6" required />
+          <input type="password" id="new-student-password" autocomplete="new-password" minlength="8" required />
         </div>
         <div class="form-group">
           <label for="confirm-student-password">تأكيد كلمة المرور</label>
-          <input type="password" id="confirm-student-password" autocomplete="new-password" minlength="6" required />
+          <input type="password" id="confirm-student-password" autocomplete="new-password" minlength="8" required />
         </div>
         <button type="submit" class="btn btn-primary" id="force-password-btn">حفظ ودخول</button>
       </form>
-      <div id="password-toast" class="toast" hidden></div>
+      <div id="password-toast" class="toast" role="status" aria-live="polite" hidden></div>
     </section>
 
     <main id="student-dashboard" hidden>
@@ -62,6 +64,7 @@
         <button type="button" class="student-nav-tab active" data-student-view="checkin" role="tab" aria-selected="true" aria-controls="student-view-checkin">تسجيل جلسة</button>
         <button type="button" class="student-nav-tab" data-student-view="stats" role="tab" aria-selected="false" aria-controls="student-view-stats">الإحصائيات</button>
         <button type="button" class="student-nav-tab" data-student-view="records" role="tab" aria-selected="false" aria-controls="student-view-records">السجلات</button>
+        <button type="button" class="student-nav-tab" data-student-view="account" role="tab" aria-selected="false" aria-controls="student-view-account">الحساب</button>
       </nav>
 
       <section class="card student-view" id="student-view-checkin" role="tabpanel">
@@ -72,7 +75,7 @@
           </div>
           <p class="muted">أدخل تفاصيل الجلسة بدقة ليتم حساب النقاط تلقائيًا</p>
         </div>
-        <form id="checkin-form" novalidate>
+        <form id="checkin-form">
           <fieldset class="form-section">
             <legend>بيانات الجلسة</legend>
             <div class="form-group form-group-wide">
@@ -81,9 +84,10 @@
                 <button type="button" class="chip" data-quick-value="__outside__">شخص آخر خارج <span class="brand-text">تعاهُد</span></button>
                 <button type="button" class="chip" data-quick-value="__listening_only__">وِرد استماع</button>
               </div>
-              <select id="listener-code" required>
+              <select id="listener-code" required aria-describedby="listener-code-error">
                 <option value="">اختر الكود...</option>
               </select>
+              <span class="field-error" id="listener-code-error" hidden></span>
             </div>
 
             <div class="form-group">
@@ -96,12 +100,15 @@
 
             <div class="form-group" id="session-date-group" hidden>
               <label for="session-date">تاريخ اليوم السابق</label>
-              <input type="date" id="session-date" />
+              <input type="date" id="session-date" aria-describedby="session-date-help session-date-error" />
+              <small class="field-help" id="session-date-help">يمكن تسجيل جلسة سابقة خلال آخر ٣ أيام.</small>
+              <span class="field-error" id="session-date-error" hidden></span>
             </div>
 
             <div class="form-group">
               <label for="pages">عدد الصفحات</label>
-              <input type="number" id="pages" min="0" step="0.5" required />
+              <input type="number" id="pages" min="0.5" max="100" step="0.5" required aria-describedby="pages-error" />
+              <span class="field-error" id="pages-error" hidden></span>
             </div>
 
             <div class="form-group form-group-wide">
@@ -112,7 +119,7 @@
 
           <fieldset class="form-section">
             <legend>تفاصيل التسميع</legend>
-            <div class="form-group">
+            <div class="form-group" id="method-group">
               <label for="method">طريقة التسميع؟</label>
               <select id="method" required>
                 <option value="">اختر...</option>
@@ -126,7 +133,7 @@
               </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="satisfaction-group">
               <label for="satisfaction">هل أنت راض عن جودة محفوظك الذي سمعته؟</label>
               <select id="satisfaction" required>
                 <option value="">اختر...</option>
@@ -146,7 +153,12 @@
             <button type="submit" class="btn btn-primary" id="submit-btn">تسجيل الجلسة</button>
           </div>
         </form>
-        <div id="toast" class="toast" hidden></div>
+        <section class="success-receipt" id="session-receipt" role="status" aria-live="polite" tabindex="-1" hidden>
+          <strong>تم تسجيل الجلسة</strong>
+          <span id="session-receipt-details"></span>
+          <button type="button" class="btn btn-secondary" id="open-records-btn">عرض السجلات</button>
+        </section>
+        <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
       </section>
 
       <section class="student-view" id="student-view-stats" role="tabpanel" hidden>
@@ -224,6 +236,28 @@
             <tbody id="student-history-body"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="card student-view account-view" id="student-view-account" role="tabpanel" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">أمان الحساب</p>
+            <h2>تغيير كلمة المرور</h2>
+          </div>
+          <p class="muted">استخدم ٨ أحرف على الأقل ولا تشارك كلمة المرور مع أي شخص.</p>
+        </div>
+        <form id="account-password-form" class="compact-form">
+          <div class="form-group">
+            <label for="account-new-password">كلمة المرور الجديدة</label>
+            <input type="password" id="account-new-password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <div class="form-group">
+            <label for="account-confirm-password">تأكيد كلمة المرور</label>
+            <input type="password" id="account-confirm-password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <button type="submit" class="btn btn-primary" id="account-password-btn">تغيير كلمة المرور</button>
+        </form>
+        <div id="account-toast" class="toast" role="status" aria-live="polite" hidden></div>
       </section>
     </main>
   </div>

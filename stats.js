@@ -197,7 +197,12 @@
       }
     });
 
-    const totalPages = inRange.reduce((sum, s) => sum + (Number(s.pages) || 0), 0);
+    const pageValues = inRange.map((s) => Number(s.pages) || 0).sort((a, b) => a - b);
+    const totalPages = pageValues.reduce((sum, value) => sum + value, 0);
+    const middle = Math.floor(pageValues.length / 2);
+    const medianPages = !pageValues.length ? 0 : pageValues.length % 2
+      ? pageValues[middle]
+      : (pageValues[middle - 1] + pageValues[middle]) / 2;
     const totalReciterPoints = effectiveSessions.reduce((sum, item) => sum + item.pointsAwarded, 0);
     const totalListenerPoints = effectiveSessions.reduce((sum, item) => sum + item.listenerPointsAwarded, 0);
 
@@ -208,6 +213,7 @@
       totalReciterPoints,
       totalListenerPoints,
       averagePages: inRange.length ? totalPages / inRange.length : 0,
+      medianPages,
       studentListenerSessions,
       outsideSessions,
       listeningOnlySessions,
@@ -243,6 +249,42 @@
       .slice(0, limit || 8);
   }
 
+  function studentCurrentStreak(studentId, sessions, referenceDate) {
+    const activeDays = new Set();
+    sessions.forEach((session) => {
+      if (session.studentId === studentId ||
+          (session.listenerType === "student" && session.listenerStudentId === studentId)) {
+        activeDays.add(localDayKey(sessionEffectiveDate(session)));
+      }
+    });
+    const cursor = new Date(referenceDate);
+    cursor.setHours(0, 0, 0, 0);
+    if (!activeDays.has(localDayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+    let streak = 0;
+    while (activeDays.has(localDayKey(cursor))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function streakDistribution(students, sessions, referenceDate) {
+    const groups = [
+      { label: "بدون ستريك", sessions: 0 },
+      { label: "١ - ٢ يوم", sessions: 0 },
+      { label: "٣ - ٦ أيام", sessions: 0 },
+      { label: "٧ أيام فأكثر", sessions: 0 },
+    ];
+    students.forEach((student) => {
+      const streak = studentCurrentStreak(student.id, sessions, referenceDate);
+      if (!streak) groups[0].sessions += 1;
+      else if (streak <= 2) groups[1].sessions += 1;
+      else if (streak <= 6) groups[2].sessions += 1;
+      else groups[3].sessions += 1;
+    });
+    return groups;
+  }
+
   function sortStats(stats, column, direction) {
     const dir = direction === "asc" ? 1 : -1;
     return stats.slice().sort((a, b) => {
@@ -268,5 +310,7 @@
     aggregateByField,
     topStudents,
     inactiveStudents,
+    studentCurrentStreak,
+    streakDistribution,
   };
 });

@@ -13,14 +13,14 @@
       <img src="assets/logo.png" alt="تعاهُد" class="app-logo" style="margin:0 auto 8px;" />
       <h1 class="brand-word" style="text-align:center;color:var(--brand);">تعاهُد</h1>
       <p class="muted" style="text-align:center;">لوحة الإدارة</p>
-      <form id="login-form" novalidate>
+      <form id="login-form">
         <div class="form-group">
           <label for="admin-password">كلمة المرور</label>
-          <input type="password" id="admin-password" required />
+          <input type="password" id="admin-password" autocomplete="current-password" required />
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;">دخول</button>
       </form>
-      <div id="login-toast" class="toast" hidden></div>
+      <div id="login-toast" class="toast" role="status" aria-live="polite" hidden></div>
     </div>
   </div>
 
@@ -39,13 +39,20 @@
       </div>
     </header>
 
-    <nav class="tabs admin-tabs">
-      <button class="tab active" data-tab="overview">نظرة عامة</button>
-      <button class="tab" data-tab="roster">الطلاب</button>
-      <button class="tab" data-tab="settings">الإعدادات</button>
-      <button class="tab" data-tab="stats">الإحصائيات</button>
-      <button class="tab" data-tab="log">سجل الجلسات</button>
+    <nav class="tabs admin-tabs" role="tablist" aria-label="أقسام لوحة الإدارة">
+      <button class="tab active" data-tab="overview" role="tab" aria-selected="true">نظرة عامة</button>
+      <button class="tab" data-tab="roster" role="tab" aria-selected="false">الطلاب</button>
+      <button class="tab" data-tab="settings" role="tab" aria-selected="false">الإعدادات</button>
+      <button class="tab" data-tab="stats" role="tab" aria-selected="false">الإحصائيات</button>
+      <button class="tab" data-tab="log" role="tab" aria-selected="false">السجلات</button>
     </nav>
+
+    <div class="admin-status-row">
+      <span id="admin-loading" role="status" aria-live="polite" hidden>جارٍ تحديث البيانات...</span>
+      <span class="muted" id="admin-last-updated"></span>
+    </div>
+
+    <main id="admin-main">
 
     <section class="dashboard-grid" id="tab-overview">
       <article class="metric-card metric-primary">
@@ -57,6 +64,18 @@
         <span class="metric-label">نقاط اليوم</span>
         <strong id="overview-today-points">0</strong>
         <span id="overview-today-active">0 طالب نشط</span>
+      </article>
+
+      <article class="metric-card">
+        <span class="metric-label">مقارنة بالأسبوع السابق</span>
+        <strong id="overview-week-change">0%</strong>
+        <span id="overview-week-change-label">لا تغيير</span>
+      </article>
+
+      <article class="metric-card metric-attention">
+        <span class="metric-label">بحاجة إلى متابعة</span>
+        <strong id="overview-at-risk-count">0</strong>
+        <span>لم يسجلوا خلال ٧ أيام</span>
       </article>
       <article class="metric-card">
         <span class="metric-label">هذا الأسبوع</span>
@@ -87,6 +106,14 @@
 
       <section class="card dashboard-panel">
         <div class="section-heading">
+          <h2>بحاجة إلى متابعة</h2>
+          <p class="muted">طلاب نشطون بلا جلسات خلال ٧ أيام</p>
+        </div>
+        <div class="compact-list" id="overview-at-risk-students"></div>
+      </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
           <h2>آخر الجلسات</h2>
           <p class="muted">متصل مباشرة بسجل التسجيل</p>
         </div>
@@ -108,6 +135,35 @@
         </div>
         <div class="bar-list" id="overview-satisfaction"></div>
       </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
+          <h2>توزيع الستريك</h2>
+          <p class="muted">الاستمرارية الحالية للطلاب النشطين</p>
+        </div>
+        <div class="bar-list" id="overview-streaks"></div>
+      </section>
+
+      <section class="card dashboard-panel">
+        <div class="section-heading">
+          <h2>جودة البيانات</h2>
+          <p class="muted">السجلات القديمة التي تحتاج مراجعة</p>
+        </div>
+        <div class="quality-summary"><strong id="overview-quality-issues">0</strong><span>ملاحظة</span></div>
+        <p class="muted" id="overview-quality-label">لا توجد مشكلات مكتشفة</p>
+      </section>
+
+      <section class="card dashboard-panel dashboard-full metric-definitions">
+        <details>
+          <summary>تعريف المؤشرات</summary>
+          <dl>
+            <dt>طالب نشط</dt><dd>شارك كمُسمِّع أو سامع داخل الفترة.</dd>
+            <dt>الستريك</dt><dd>أيام نشاط متتالية حتى اليوم أو الأمس.</dd>
+            <dt>بحاجة إلى متابعة</dt><dd>حساب نشط لم يشارك خلال آخر ٧ أيام.</dd>
+            <dt>النقاط</dt><dd>القيمة المحفوظة وقت تسجيل الجلسة وفق قواعد ذلك الوقت.</dd>
+          </dl>
+        </details>
+      </section>
     </section>
 
     <section class="card" id="tab-roster" hidden>
@@ -126,6 +182,14 @@
         </div>
         <button type="submit" class="btn btn-primary">إضافة</button>
       </form>
+      <div class="roster-tools">
+        <div class="form-group">
+          <label for="bulk-student-file">استيراد طلاب من CSV</label>
+          <input type="file" id="bulk-student-file" accept=".csv,text/csv" />
+        </div>
+        <button type="button" class="btn btn-secondary" id="import-students-btn">استيراد الملف</button>
+        <button type="button" class="btn btn-secondary" id="rotate-passwords-btn">تأمين كلمات المرور القديمة</button>
+      </div>
       <div class="form-group">
         <label for="roster-search">البحث بالكود أو الاسم</label>
         <input type="text" id="roster-search" autocomplete="off" placeholder="مثال: 042" />
@@ -138,7 +202,7 @@
           <tbody id="roster-body"></tbody>
         </table>
       </div>
-      <div id="roster-toast" class="toast" hidden></div>
+      <div id="roster-toast" class="toast" role="status" aria-live="polite" hidden></div>
     </section>
 
     <section class="card" id="tab-student-detail" hidden>
@@ -205,21 +269,26 @@
         </div>
         <button type="submit" class="btn btn-primary">حفظ</button>
       </form>
-      <div id="settings-toast" class="toast" hidden></div>
+      <p class="field-help">تغييرات النقاط تُطبق على الجلسات الجديدة فقط، ولا تغيّر نقاط السجلات السابقة.</p>
+      <div id="settings-toast" class="toast" role="status" aria-live="polite" hidden></div>
     </section>
 
     <section class="card" id="tab-stats" hidden>
       <h2>الإحصائيات</h2>
-      <nav class="tabs" id="period-tabs">
-        <button class="tab active" data-period="day">اليوم</button>
-        <button class="tab" data-period="week">الأسبوع</button>
-        <button class="tab" data-period="month">الشهر</button>
-        <button class="tab" data-period="all">الكل</button>
+      <nav class="tabs" id="period-tabs" aria-label="فترة الإحصائيات">
+        <button class="tab active" data-period="day" aria-pressed="true">اليوم</button>
+        <button class="tab" data-period="week" aria-pressed="false">الأسبوع</button>
+        <button class="tab" data-period="month" aria-pressed="false">الشهر</button>
+        <button class="tab" data-period="all" aria-pressed="false">الكل</button>
       </nav>
       <div class="stat-tiles" id="stats-totals">
         <div class="stat-tile">
           <span class="stat-tile-value" id="total-sessions">0</span>
           <span class="stat-tile-label">إجمالي الجلسات</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value" id="total-median-pages">0</span>
+          <span class="stat-tile-label">وسيط الصفحات</span>
         </div>
         <div class="stat-tile">
           <span class="stat-tile-value" id="total-pages">0</span>
@@ -256,12 +325,13 @@
         <table class="table" id="stats-table">
           <thead>
             <tr>
-              <th data-col="name">الاسم</th>
-              <th data-col="sessionsRecited">جلسات التسميع</th>
-              <th data-col="pagesRecited">صفحات مسمّعة</th>
-              <th data-col="sessionsListened">جلسات الاستماع</th>
-              <th data-col="pagesListened">صفحات مستمع لها</th>
-              <th data-col="pointsEarned">النقاط</th>
+              <th><button class="sort-button" data-col="name">الاسم</button></th>
+              <th>الحالة</th>
+              <th><button class="sort-button" data-col="sessionsRecited">جلسات التسميع</button></th>
+              <th><button class="sort-button" data-col="pagesRecited">صفحات مسمّعة</button></th>
+              <th><button class="sort-button" data-col="sessionsListened">جلسات الاستماع</button></th>
+              <th><button class="sort-button" data-col="pagesListened">صفحات مستمع لها</button></th>
+              <th><button class="sort-button" data-col="pointsEarned">النقاط</button></th>
             </tr>
           </thead>
           <tbody id="stats-body"></tbody>
@@ -270,10 +340,14 @@
     </section>
 
     <section class="card" id="tab-log" hidden>
-      <h2>سجل الجلسات</h2>
-      <div class="filter-row">
-        <select id="log-filter-student"><option value="">كل الطلاب</option></select>
-        <select id="log-filter-method">
+      <div class="section-heading">
+        <div><h2>السجلات</h2><p class="muted" id="log-results-summary">0 سجل</p></div>
+        <button type="button" class="btn btn-secondary" id="export-log-btn">تصدير CSV</button>
+      </div>
+      <div class="filter-row log-filters">
+        <div class="form-group"><label for="log-filter-search">بحث</label><input type="search" id="log-filter-search" placeholder="الاسم أو الكود أو الملاحظات" /></div>
+        <div class="form-group"><label for="log-filter-student">الطالب</label><select id="log-filter-student"><option value="">كل الطلاب</option></select></div>
+        <div class="form-group"><label for="log-filter-method">الطريقة</label><select id="log-filter-method">
           <option value="">كل الطرق</option>
           <option value="تليجرام">تليجرام</option>
           <option value="واتس">واتس</option>
@@ -282,7 +356,10 @@
           <option value="مقابلة">مقابلة</option>
           <option value="استماع">استماع</option>
           <option value="أخرى">أخرى</option>
-        </select>
+        </select></div>
+        <div class="form-group"><label for="log-filter-type">نوع السامع</label><select id="log-filter-type"><option value="">كل الأنواع</option><option value="student">طالب</option><option value="outside">خارج تعاهُد</option><option value="listening_only">وِرد استماع</option></select></div>
+        <div class="form-group"><label for="log-filter-from">من تاريخ</label><input type="date" id="log-filter-from" /></div>
+        <div class="form-group"><label for="log-filter-to">إلى تاريخ</label><input type="date" id="log-filter-to" /></div>
       </div>
       <div class="table-wrap">
         <table class="table" id="log-table">
@@ -298,13 +375,45 @@
               <th>نقاط السامع</th>
               <th>الرضا</th>
               <th>الملاحظات</th>
+              <th>إجراءات</th>
             </tr>
           </thead>
           <tbody id="log-body"></tbody>
         </table>
       </div>
+      <div class="pagination" aria-label="صفحات السجلات">
+        <button type="button" class="btn btn-secondary" id="log-prev-btn">السابق</button>
+        <span id="log-page-label">صفحة 1 من 1</span>
+        <button type="button" class="btn btn-secondary" id="log-next-btn">التالي</button>
+      </div>
+      <div id="log-toast" class="toast" role="status" aria-live="polite" hidden></div>
     </section>
+    </main>
   </div>
+
+  <dialog id="credentials-dialog" class="app-dialog" aria-labelledby="credentials-title">
+    <h2 id="credentials-title">بيانات الدخول المؤقتة</h2>
+    <p class="muted">تظهر هذه الكلمات الآن فقط. صدّر الملف وسلّم كل طالب بياناته منفصلة.</p>
+    <div class="table-wrap"><table class="table"><thead><tr><th>الكود</th><th>الاسم</th><th>كلمة المرور المؤقتة</th></tr></thead><tbody id="credentials-body"></tbody></table></div>
+    <div class="dialog-actions"><button type="button" class="btn btn-primary" id="export-credentials-btn">تصدير CSV</button><button type="button" class="btn btn-secondary" id="close-credentials-btn">إغلاق</button></div>
+  </dialog>
+
+  <dialog id="session-edit-dialog" class="app-dialog" aria-labelledby="session-edit-title">
+    <h2 id="session-edit-title">تعديل الجلسة</h2>
+    <form id="session-edit-form" class="dialog-form">
+      <input type="hidden" id="edit-session-id" />
+      <div class="form-group"><label for="edit-session-date">التاريخ</label><input type="date" id="edit-session-date" required /></div>
+      <div class="form-group"><label for="edit-pages">الصفحات</label><input type="number" id="edit-pages" min="0.5" max="100" step="0.5" required /></div>
+      <div class="form-group"><label for="edit-method">الطريقة</label><select id="edit-method" required><option>تليجرام</option><option>واتس</option><option>مكالمة هاتفية</option><option>جوجل ميت</option><option>مقابلة</option><option>استماع</option><option>أخرى</option></select></div>
+      <div class="form-group"><label for="edit-satisfaction">الرضا</label><select id="edit-satisfaction" required><option>نعم تماما</option><option>يحتاج إلى مزيد من الضبط</option><option>وردي كان ورد استماع</option></select></div>
+      <div class="form-group"><label for="edit-reciter-points">نقاط الطالب</label><input type="number" id="edit-reciter-points" min="0" step="1" required /></div>
+      <div class="form-group"><label for="edit-listener-points">نقاط السامع</label><input type="number" id="edit-listener-points" min="0" step="1" required /></div>
+      <div class="form-group form-group-wide"><label for="edit-surah-range">من</label><input type="text" id="edit-surah-range" /></div>
+      <div class="form-group form-group-wide"><label for="edit-notes">الملاحظات</label><textarea id="edit-notes" rows="3"></textarea></div>
+      <div class="form-group form-group-wide"><label for="edit-reason">سبب التعديل</label><input type="text" id="edit-reason" required /></div>
+      <div class="dialog-actions form-group-wide"><button type="submit" class="btn btn-primary">حفظ التعديل</button><button type="button" class="btn btn-secondary" id="cancel-edit-btn">إلغاء</button></div>
+    </form>
+  </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="supabase-config.js" defer></script>

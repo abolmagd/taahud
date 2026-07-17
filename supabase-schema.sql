@@ -1,6 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════
--- Ta'ahud Database Schema
--- Go to Supabase Dashboard → SQL Editor → New Query and paste this.
+-- Ta'ahud Database Schema (base schema)
+-- For an existing or fresh project, run this file first, then run
+-- supabase-upgrade-2026-07.sql. The upgrade contains the current hardened
+-- authentication, authorization, audit, and session-integrity layer.
 -- ═══════════════════════════════════════════════════════════════
 
 create extension if not exists pgcrypto with schema extensions;

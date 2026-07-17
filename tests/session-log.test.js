@@ -25,9 +25,17 @@ test("filterSessions: method is an exact match", () => {
   assert.deepEqual(result.map((s) => s.id), ["2"]);
 });
 
-test("filterSessions: from/to bounds createdAt inclusive-start/exclusive-end", () => {
-  const result = filterSessions(sessions, { from: "2026-07-02T00:00:00", to: "2026-07-08T10:00:00" });
-  assert.deepEqual(result.map((s) => s.id), ["2"]);
+test("filterSessions: from/to bounds use the effective date and include both selected days", () => {
+  const result = filterSessions(sessions, { from: "2026-07-02", to: "2026-07-08" });
+  assert.deepEqual(result.map((s) => s.id), ["2", "3"]);
+});
+
+test("filterSessions: searches labels and notes and filters listener type", () => {
+  const rows = [
+    { id: "a", listenerType: "outside", studentLabel: "001 - أحمد", notes: "مراجعة", sessionDate: "2026-07-08" },
+    { id: "b", listenerType: "student", studentLabel: "002 - سارة", notes: "", sessionDate: "2026-07-08" },
+  ];
+  assert.deepEqual(filterSessions(rows, { search: "مراجعة", listenerType: "outside" }).map((s) => s.id), ["a"]);
 });
 
 test("filterSessions: filters combine with AND", () => {

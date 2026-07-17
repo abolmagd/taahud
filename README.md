@@ -9,15 +9,17 @@ project, its own Vercel deployment.
 ## One-time setup
 
 1. Create a new project at https://supabase.com/dashboard (e.g. named "taahud").
-2. In the new project's SQL Editor, run the contents of `supabase-schema.sql`.
+2. In the new project's SQL Editor, run `supabase-schema.sql`, then
+   `supabase-upgrade-2026-07.sql` in that order. Existing projects only need
+   the upgrade file.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
-   account.
+   account. Database policies verify this exact email before granting admin access.
 4. In Project Settings → API, copy the Project URL and the `anon` public key
    into `supabase-config.js` (`SUPABASE_URL` / `SUPABASE_ANON_KEY`).
 5. In the admin dashboard (`admin.html`), log in and use the "الطلاب" tab to
-   add your students (code + name) — there's no bulk import, add them one at a
-   time.
+   add students individually or import a two-column CSV (`code,name`). Export
+   the one-time passwords shown after creation and deliver each one privately.
 6. In the "الإعدادات" tab, set the three point rules: daily check-in/streak,
    points per recited page, and points per listened page.
 
@@ -40,6 +42,13 @@ filtering) has unit tests:
 npm test
 ```
 
+With a local server running on port 4173 and Playwright available, the reusable
+desktop/mobile browser audit can be run with:
+
+```bash
+NODE_PATH=/path/to/node_modules node tests/browser-audit.cjs
+```
+
 ## Deploying
 
 Deploy the project root to Vercel as a static site (no build command needed).
@@ -47,7 +56,10 @@ Deploy the project root to Vercel as a static site (no build command needed).
 
 ## End-to-end QA checklist (run once after setup, and after any deploy)
 
-- [ ] Student check-in form loads both dropdowns with the seeded roster.
+- [ ] Student login accepts the one-time password, forces an 8-character
+      replacement, and restores the short-lived session after a refresh.
+- [ ] Student check-in loads active listener codes without exposing names or
+      password status to anonymous visitors.
 - [ ] Submitting a session with a real student listener creates a `sessions`
       row with the correct `points_awarded` for the reciter and
       `listener_points_awarded` for the listener.
@@ -55,9 +67,9 @@ Deploy the project root to Vercel as a static site (no build command needed).
       points of `0`, while the reciter still gets their configured daily/page
       points.
 - [ ] Admin login rejects a wrong password and accepts the right one.
-- [ ] Admin can add/deactivate a student, and a deactivated student disappears
-      from the check-in dropdowns.
+- [ ] Admin can add/deactivate a student, reset a unique one-time password, and
+      a deactivated student disappears from the check-in dropdowns.
 - [ ] Admin stats table shows correct totals for day/week/month and sorts on
       column click.
-- [ ] Admin session log lists every submission with readable names and filters
-      correctly by student and method.
+- [ ] Admin records list filters by text/student/type/method/date, exports CSV,
+      and edit/delete actions appear in `admin_audit_log`.

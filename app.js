@@ -3,14 +3,15 @@
 (function () {
   const state = {
     client: null,
-    code: "",
-    password: "",
+    accessToken: "",
     student: null,
     students: [],
     sessions: [],
     statsPeriod: "day",
     recordsPeriod: "day",
+    pendingRequestId: null,
   };
+  const STUDENT_TOKEN_KEY = "taahud_student_access_token";
 
   function getClient() {
     if (!window._supabase) {
@@ -25,6 +26,7 @@
     toast.textContent = message;
     toast.className = "toast toast-" + (kind || "success");
     toast.hidden = false;
+    toast.setAttribute("role", kind === "error" ? "alert" : "status");
     setTimeout(() => {
       toast.hidden = true;
     }, 4000);
@@ -39,10 +41,14 @@
   function friendlyError(error) {
     const message = (error && error.message) || "";
     if (message.includes("invalid_login")) return "الكود أو كلمة المرور غير صحيحة";
-    if (message.includes("weak_password")) return "كلمة المرور يجب أن تكون ٦ أحرف على الأقل";
+    if (message.includes("weak_password")) return "كلمة المرور يجب أن تكون ٨ أحرف على الأقل";
+    if (message.includes("invalid_student_session")) return "انتهت الجلسة، سجّل الدخول مرة أخرى";
+    if (message.includes("self_listener_not_allowed")) return "لا يمكن اختيار كودك كسامع للجلسة";
+    if (message.includes("invalid_pages")) return "عدد الصفحات يجب أن يكون من نصف صفحة إلى ١٠٠ صفحة";
+    if (message.includes("invalid_method") || message.includes("invalid_satisfaction")) return "راجع تفاصيل الجلسة المختارة";
     if (message.includes("password_change_required")) return "يجب تغيير كلمة المرور أولًا";
     if (message.includes("invalid_listener")) return "كود السامع غير صحيح";
-    if (message.includes("invalid_session_date")) return "اختر تاريخًا سابقًا صحيحًا";
+    if (message.includes("invalid_session_date")) return "اختر تاريخًا خلال آخر ٣ أيام";
     if (message.includes("Could not find the function") || message.includes("schema cache")) {
       return "تحديث قاعدة البيانات غير مكتمل، شغّل كود SQL الأخير";
     }
@@ -50,6 +56,7 @@
   }
 
   function showView(name) {
+    document.getElementById("public-app-header").hidden = name === "dashboard";
     document.getElementById("student-login-card").hidden = name !== "login";
     document.getElementById("force-password-card").hidden = name !== "password";
     document.getElementById("student-dashboard").hidden = name !== "dashboard";
@@ -65,11 +72,9 @@
   }
 
   async function loadStudents() {
-    const { data, error } = await state.client
-      .from("students")
-      .select("id, code")
-      .eq("active", true)
-      .order("code", { ascending: true });
+    const { data, error } = await state.client.rpc("list_active_student_codes", {
+      access_token: state.accessToken,
+    });
     if (error) {
       console.error("[Ta'ahud] Failed to load students", error);
       return [];
@@ -122,12 +127,25 @@
     return { listenerType: "student", listenerCode: value };
   }
 
-  function localDateInputValue(value) {
+  function cairoDateParts(value) {
     const date = value ? new Date(value) : new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return year + "-" + month + "-" + day;
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  }
+
+  function cairoDate() {
+    const parts = cairoDateParts();
+    return new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+  }
+
+  function localDateInputValue(value) {
+    const date = value ? new Date(value) : cairoDate();
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
   }
 
   function previousDate(value) {
@@ -152,7 +170,7 @@
   };
 
   function filteredSessions(period) {
-    return window.TaahudStudentDashboard.filterSessionsByPeriod(state.sessions, period, new Date());
+    return window.TaahudStudentDashboard.filterSessionsByPeriod(state.sessions, period, cairoDate());
   }
 
   function renderHistory() {
@@ -200,7 +218,7 @@
       "إحصائيات " + periodLabels[state.statsPeriod];
     document.getElementById("student-total-points").textContent = totals.totalPoints;
     document.getElementById("student-current-streak").textContent =
-      window.TaahudStudentDashboard.currentStreak(state.sessions, new Date());
+      window.TaahudStudentDashboard.currentStreak(state.sessions, cairoDate());
     document.getElementById("student-total-pages").textContent = totals.totalPages;
     document.getElementById("student-total-sessions").textContent = totals.totalSessions;
     document.getElementById("student-reciter-sessions").textContent = totals.reciterSessions;
@@ -221,18 +239,17 @@
   }
 
   async function authenticateStudent(code, password) {
-    const { data, error } = await state.client.rpc("authenticate_student", {
+    const { data, error } = await state.client.rpc("student_login", {
       auth_code: code,
       auth_password: password,
     });
     if (error) throw error;
-    return (data || [])[0] || null;
+    return data || null;
   }
 
   async function loadProfile() {
     const { data, error } = await state.client.rpc("get_student_profile", {
-      auth_code: state.code,
-      auth_password: state.password,
+      access_token: state.accessToken,
     });
     if (error) throw error;
     return data;
@@ -256,14 +273,24 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
-    ["checkin", "stats", "records"].forEach((view) => {
+    ["checkin", "stats", "records", "account"].forEach((view) => {
       document.getElementById("student-view-" + view).hidden = view !== name;
     });
+    const panel = document.getElementById("student-view-" + name);
+    panel.setAttribute("tabindex", "-1");
+    panel.focus({ preventScroll: true });
   }
 
   function wireStudentNavigation() {
-    document.querySelectorAll("[data-student-view]").forEach((button) => {
+    const tabs = Array.from(document.querySelectorAll("[data-student-view]"));
+    tabs.forEach((button, index) => {
       button.addEventListener("click", () => showStudentView(button.dataset.studentView));
+      button.addEventListener("keydown", (event) => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        event.preventDefault();
+        const delta = event.key === 'ArrowLeft' ? 1 : -1;
+        tabs[(index + delta + tabs.length) % tabs.length].focus();
+      });
     });
   }
 
@@ -304,10 +331,11 @@
           showToast("login-toast", "الكود أو كلمة المرور غير صحيحة", "error");
           return;
         }
-        state.code = code;
-        state.password = password;
-        state.student = student;
-        if (student.must_change_password) {
+        state.accessToken = student.accessToken;
+        state.student = student.student;
+        sessionStorage.setItem(STUDENT_TOKEN_KEY, state.accessToken);
+        document.getElementById("login-password").value = "";
+        if (student.mustChangePassword) {
           showView("password");
         } else {
           await enterDashboard();
@@ -328,8 +356,8 @@
       event.preventDefault();
       const nextPassword = document.getElementById("new-student-password").value;
       const confirmPassword = document.getElementById("confirm-student-password").value;
-      if (nextPassword.length < 6) {
-        showToast("password-toast", "كلمة المرور يجب أن تكون ٦ أحرف على الأقل", "error");
+      if (nextPassword.length < 8) {
+        showToast("password-toast", "كلمة المرور يجب أن تكون ٨ أحرف على الأقل", "error");
         return;
       }
       if (nextPassword !== confirmPassword) {
@@ -339,14 +367,12 @@
 
       setButtonLoading(button, true);
       try {
-        const { data, error } = await state.client.rpc("complete_student_password_change", {
-          auth_code: state.code,
-          old_password: state.password,
+        const { error } = await state.client.rpc("student_change_password", {
+          access_token: state.accessToken,
           new_password: nextPassword,
         });
         if (error) throw error;
-        state.password = nextPassword;
-        await enterDashboardWithProfile(data);
+        await enterDashboard();
       } catch (error) {
         console.error("[Ta'ahud] Password change failed", error);
         showToast("password-toast", friendlyError(error), "error");
@@ -364,23 +390,44 @@
           .querySelectorAll(".code-search-quick-options .chip")
           .forEach((btn) => btn.classList.toggle("active", btn === chip));
         document.getElementById("listener-code").value = value;
+        syncListeningOnlyFields();
       });
     });
-    document.getElementById("listener-code").addEventListener("change", deactivateListenerChips);
+    document.getElementById("listener-code").addEventListener("change", () => {
+      deactivateListenerChips();
+      syncListeningOnlyFields();
+    });
+  }
+
+  function syncListeningOnlyFields() {
+    const listeningOnly = document.getElementById("listener-code").value === "__listening_only__";
+    const method = document.getElementById("method");
+    const satisfaction = document.getElementById("satisfaction");
+    document.getElementById("method-group").hidden = listeningOnly;
+    document.getElementById("satisfaction-group").hidden = listeningOnly;
+    method.required = !listeningOnly;
+    satisfaction.required = !listeningOnly;
+    if (listeningOnly) {
+      method.value = "استماع";
+      satisfaction.value = "وردي كان ورد استماع";
+    }
   }
 
   function wireSessionTiming() {
     const timing = document.getElementById("session-timing");
     const dateGroup = document.getElementById("session-date-group");
     const dateInput = document.getElementById("session-date");
-    dateInput.max = localDateInputValue(previousDate(new Date()));
+    dateInput.max = localDateInputValue(previousDate(cairoDate()));
+    const earliest = new Date(cairoDate());
+    earliest.setDate(earliest.getDate() - 3);
+    dateInput.min = localDateInputValue(earliest);
 
     timing.addEventListener("change", () => {
       const isPrevious = timing.value === "previous";
       dateGroup.hidden = !isPrevious;
       dateInput.required = isPrevious;
       if (isPrevious && !dateInput.value) {
-        dateInput.value = localDateInputValue(previousDate(new Date()));
+        dateInput.value = localDateInputValue(previousDate(cairoDate()));
       }
     });
   }
@@ -402,7 +449,8 @@
         !listenerValue ||
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
-        pagesValue < 0 ||
+        pagesValue <= 0 ||
+        pagesValue > 100 ||
         !methodValue ||
         !satisfactionValue ||
         (sessionTiming === "previous" && !sessionDate)
@@ -412,11 +460,16 @@
       }
 
       const listenerSelection = readListenerSelection(listenerValue);
+      if (listenerSelection.listenerType === "student" && listenerSelection.listenerCode === state.student.code) {
+        showToast("toast", "لا يمكن اختيار كودك كسامع للجلسة", "error");
+        return;
+      }
+      state.pendingRequestId = state.pendingRequestId || crypto.randomUUID();
       setButtonLoading(submitBtn, true);
       try {
-        const { error } = await state.client.rpc("record_student_session", {
-          auth_code: state.code,
-          auth_password: state.password,
+        const { data, error } = await state.client.rpc("record_student_session", {
+          access_token: state.accessToken,
+          p_client_request_id: state.pendingRequestId,
           p_listener_type: listenerSelection.listenerType,
           p_listener_code: listenerSelection.listenerCode,
           p_pages: pagesValue,
@@ -429,12 +482,18 @@
         });
         if (error) throw error;
 
-        showToast("toast", "تم تسجيل الجلسة بنجاح", "success");
+        state.pendingRequestId = null;
         form.reset();
         document.getElementById("session-date-group").hidden = true;
         document.getElementById("session-date").required = false;
         deactivateListenerChips();
+        syncListeningOnlyFields();
         renderDashboard(await loadProfile());
+        const details = "تاريخ " + formatShortDate(data.sessionDate) + " · " + data.pointsAwarded + " نقطة";
+        document.getElementById("session-receipt-details").textContent = details;
+        const receipt = document.getElementById("session-receipt");
+        receipt.hidden = false;
+        receipt.focus();
       } catch (error) {
         console.error("[Ta'ahud] Failed to save session", error);
         if (((error && error.message) || "").includes("password_change_required")) {
@@ -448,9 +507,12 @@
   }
 
   function wireLogout() {
-    document.getElementById("student-logout-btn").addEventListener("click", () => {
-      state.code = "";
-      state.password = "";
+    document.getElementById("student-logout-btn").addEventListener("click", async () => {
+      if (state.accessToken) {
+        await state.client.rpc("student_logout", { access_token: state.accessToken });
+      }
+      state.accessToken = "";
+      sessionStorage.removeItem(STUDENT_TOKEN_KEY);
       state.student = null;
       state.sessions = [];
       state.statsPeriod = "day";
@@ -460,6 +522,61 @@
       document.getElementById("student-login-form").reset();
       document.getElementById("force-password-form").reset();
       showView("login");
+    });
+  }
+
+  function wireAccountPasswordChange() {
+    const form = document.getElementById("account-password-form");
+    const button = document.getElementById("account-password-btn");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = document.getElementById("account-new-password").value;
+      const confirmation = document.getElementById("account-confirm-password").value;
+      if (password.length < 8 || password !== confirmation) {
+        showToast("account-toast", password.length < 8 ? "كلمة المرور يجب أن تكون ٨ أحرف على الأقل" : "كلمتا المرور غير متطابقتين", "error");
+        return;
+      }
+      setButtonLoading(button, true);
+      const { error } = await state.client.rpc("student_change_password", {
+        access_token: state.accessToken,
+        new_password: password,
+      });
+      setButtonLoading(button, false);
+      if (error) {
+        showToast("account-toast", friendlyError(error), "error");
+        return;
+      }
+      form.reset();
+      showToast("account-toast", "تم تغيير كلمة المرور بنجاح", "success");
+    });
+  }
+
+  function wireReceipt() {
+    document.getElementById("open-records-btn").addEventListener("click", () => showStudentView("records"));
+  }
+
+  function wireInlineValidation() {
+    const messages = {
+      "login-code": "اكتب كود الطالب",
+      "login-password": "اكتب كلمة المرور",
+      "listener-code": "اختر السامع أو نوع الجلسة",
+      pages: "أدخل عددًا من نصف صفحة إلى ١٠٠ صفحة",
+      "session-date": "اختر تاريخًا خلال آخر ٣ أيام",
+    };
+    document.querySelectorAll("input, select, textarea").forEach((field) => {
+      field.addEventListener("invalid", () => {
+        const error = document.getElementById(field.id + "-error");
+        if (!error) return;
+        error.textContent = messages[field.id] || "راجع هذا الحقل";
+        error.hidden = false;
+        field.setAttribute("aria-invalid", "true");
+      });
+      field.addEventListener("input", () => {
+        const error = document.getElementById(field.id + "-error");
+        if (!error || !field.validity.valid) return;
+        error.hidden = true;
+        field.removeAttribute("aria-invalid");
+      });
     });
   }
 
@@ -477,6 +594,21 @@
     wireSessionTiming();
     wireCheckin();
     wireLogout();
+    wireAccountPasswordChange();
+    wireReceipt();
+    wireInlineValidation();
+
+    state.accessToken = sessionStorage.getItem(STUDENT_TOKEN_KEY) || "";
+    if (state.accessToken) {
+      try {
+        await enterDashboard();
+        return;
+      } catch (error) {
+        console.warn("[Ta'ahud] Stored student session expired", error);
+        sessionStorage.removeItem(STUDENT_TOKEN_KEY);
+        state.accessToken = "";
+      }
+    }
     showView("login");
   }
 

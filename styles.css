@@ -15,7 +15,7 @@
   --surface-strong: #e9e2d0;
   --text: #1c1917;
   --muted: #6b655a;
-  --line: #ddd6c7;
+  --line: #81796b;
   --brand: #1c1917;
   --accent: #a16207;
   --accent-strong: #7c4d05;
@@ -26,9 +26,9 @@
   --success: #3f7d4a;
   --danger: #a73434;
   --warning: #9b650e;
-  --radius-lg: 18px;
-  --radius-md: 12px;
-  --radius-sm: 9px;
+  --radius-lg: 8px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
   --shadow: 0 20px 50px rgba(28, 25, 23, 0.1);
   --focus-ring: 0 0 0 3px rgba(161, 98, 7, 0.45);
   --font-brand: "BUKRA", "29LT Bukra", "Noto Sans Arabic", ui-sans-serif, system-ui,
@@ -179,6 +179,21 @@ body {
   font-size: 1rem;
 }
 
+.field-help,
+.field-error {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.field-help { color: var(--muted); }
+.field-error { color: var(--danger); font-weight: 700; }
+
+.form-group :invalid:not(:placeholder-shown) {
+  border-color: var(--danger);
+}
+
 .form-group textarea {
   min-height: 88px;
 }
@@ -323,6 +338,15 @@ body {
   background: var(--surface-soft);
 }
 
+.btn-danger {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+
+.btn-danger:hover { background: rgba(167, 52, 52, 0.08); }
+.btn-compact { min-height: 40px; padding: 7px 12px; font-size: 0.86rem; }
+
 .toast {
   margin-top: 16px;
   padding: 12px 16px;
@@ -358,6 +382,16 @@ body {
   backdrop-filter: blur(10px);
 }
 
+.admin-status-row {
+  display: flex;
+  justify-content: space-between;
+  min-height: 28px;
+  margin: -10px 0 10px;
+  font-size: 0.84rem;
+}
+
+#admin-loading { color: var(--accent-strong); font-weight: 700; }
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -380,6 +414,8 @@ body {
   flex-direction: column;
   justify-content: space-between;
 }
+
+.metric-attention { border-color: var(--warning); }
 
 .metric-card strong,
 .mini-panel strong {
@@ -737,7 +773,6 @@ body {
 .table th {
   color: var(--brand);
   font-family: var(--font-heading);
-  cursor: pointer;
   user-select: none;
 }
 
@@ -753,6 +788,79 @@ body {
   color: var(--muted);
   text-align: center !important;
 }
+
+.sort-button {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sort-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.table-actions { display: flex; gap: 6px; min-width: 150px; }
+
+.roster-tools {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.roster-tools .form-group { min-width: 230px; margin: 0; flex: 1; }
+
+.log-filters .form-group { flex: 1 1 170px; margin: 0; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.compact-item-button {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  text-align: right;
+}
+
+.quality-summary { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.quality-summary strong { color: var(--teal); font-family: var(--font-heading); font-size: 2.2rem; }
+.metric-definitions summary { cursor: pointer; color: var(--accent-strong); font-weight: 800; }
+.metric-definitions dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin-bottom: 0; }
+.metric-definitions dt { font-weight: 800; }
+.metric-definitions dd { margin: 0; color: var(--muted); }
+
+.app-dialog {
+  width: min(760px, calc(100% - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.app-dialog::backdrop { background: rgba(28, 25, 23, 0.55); }
+.app-dialog h2 { margin-top: 0; font-family: var(--font-heading); }
+.dialog-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dialog-form .form-group { margin: 0; }
+.dialog-form .form-group-wide { grid-column: 1 / -1; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
 .login-screen {
   max-width: 360px;
@@ -791,7 +899,7 @@ body {
 
 .student-nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 24px;
   padding: 6px;
@@ -978,6 +1086,22 @@ body {
   min-width: 620px;
 }
 
+.success-receipt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--success);
+  border-radius: var(--radius-md);
+  background: var(--green-soft);
+}
+
+.success-receipt strong { color: var(--success); }
+.success-receipt .btn { margin-right: auto; }
+.compact-form { max-width: 560px; }
+
 hr.divider {
   border: none;
   border-top: 1px solid var(--line);
@@ -1014,9 +1138,43 @@ hr.divider {
     align-items: stretch;
   }
 
+  .student-dashboard-head {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .student-dashboard-head .btn { flex: 0 0 auto; }
+
   .admin-actions .btn {
     flex: 1;
   }
+
+  .page { padding: 14px 10px 44px; }
+  .card { padding: 16px; }
+
+  .app-logo-sm { height: 34px; }
+  .admin-header .brand-word { font-size: 1.45rem; }
+
+  .admin-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .admin-tabs .tab { flex: 0 0 auto; min-height: 48px; }
+
+  .dialog-form { grid-template-columns: 1fr; }
+  .dialog-form .form-group-wide { grid-column: 1; }
+
+  .roster-tools { align-items: stretch; }
+  .roster-tools .btn { width: 100%; }
+
+  .log-filters { display: grid; grid-template-columns: 1fr 1fr; }
+
+  .table-actions { position: sticky; left: 0; background: var(--surface); }
+  .metric-definitions dl { grid-template-columns: 1fr; gap: 4px; }
+  .metric-definitions dd { margin-bottom: 10px; }
 
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -1112,6 +1270,12 @@ hr.divider {
     font-size: 0.86rem;
   }
 
+  .student-nav { gap: 3px; padding: 4px; }
+  .student-nav-tab { min-width: 0; overflow-wrap: anywhere; }
+
+  .success-receipt { align-items: stretch; }
+  .success-receipt .btn { width: 100%; margin: 0; }
+
   .student-view-toolbar,
   .student-section-heading {
     align-items: stretch;
@@ -1199,4 +1363,9 @@ hr.divider {
   .student-history-table .empty-cell::before {
     content: none;
   }
+}
+
+@media (max-width: 420px) {
+  .log-filters { grid-template-columns: 1fr; }
+  .student-nav-tab { font-size: 0.78rem; }
 }
