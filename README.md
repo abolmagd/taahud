@@ -17,6 +17,8 @@ project, its own Vercel deployment.
    student add/reset actions.
    Run `supabase-fix-code-leading-zeros.sql` once to make numeric login codes
    ignore Arabic/English digit shape and leading zeroes.
+   Run `supabase-add-point-reset-actions.sql` once to enable the admin actions
+   for resetting one student's points or all students' points.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
@@ -74,6 +76,8 @@ Deploy the project root to Vercel as a static site (no build command needed).
 - [ ] Admin login rejects a wrong password and accepts the right one.
 - [ ] Admin can add/deactivate a student, reset the password to `123456789`, and
       a deactivated student disappears from the check-in dropdowns.
+- [ ] Admin can reset one student's points or all points without deleting any
+      session, and each action appears in `admin_audit_log` with its reason.
 - [ ] Admin stats table shows correct totals for day/week/month and sorts on
       column click.
 - [ ] Admin records list filters by text/student/type/method/date, exports CSV,

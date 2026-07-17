@@ -173,6 +173,52 @@ window.TaahudAdmin = (function () {
       });
       actionCell.appendChild(resetPasswordBtn);
 
+      const resetPointsBtn = document.createElement("button");
+      resetPointsBtn.className = "btn btn-danger";
+      resetPointsBtn.textContent = "تصفير النقاط";
+      resetPointsBtn.dataset.action = "reset-student-points";
+      resetPointsBtn.addEventListener("click", async () => {
+        if (Number(student.totalPoints) <= 0) {
+          showToast("roster-toast", "رصيد هذا الطالب صفر بالفعل", "success");
+          return;
+        }
+
+        const confirmed = window.confirm(
+          "سيتم تصفير " + formatNumber(student.totalPoints) + " نقطة للطالب " + student.code +
+          ". ستظل الجلسات والسجلات محفوظة. هل تريد الاستمرار؟"
+        );
+        if (!confirmed) return;
+
+        const reasonInput = window.prompt("اكتب سبب تصفير نقاط الطالب (إلزامي):");
+        if (reasonInput === null) return;
+        const reason = reasonInput.trim();
+        if (!reason) {
+          showToast("roster-toast", "يجب كتابة سبب التصفير", "error");
+          return;
+        }
+
+        resetPointsBtn.disabled = true;
+        const { data, error } = await state.client.rpc("admin_reset_student_points", {
+          target_student_id: student.id,
+          change_reason: reason,
+        });
+        resetPointsBtn.disabled = false;
+
+        if (error) {
+          console.error("[Ta'ahud] Failed to reset student points", error);
+          showToast("roster-toast", "حدث خطأ أثناء تصفير النقاط", "error");
+          return;
+        }
+
+        showToast(
+          "roster-toast",
+          "تم تصفير " + formatNumber(data && data.removedPoints) + " نقطة للطالب " + student.code,
+          "success"
+        );
+        await refreshRoster();
+      });
+      actionCell.appendChild(resetPointsBtn);
+
       row.appendChild(codeCell);
       row.appendChild(nameCell);
       row.appendChild(statusCell);
@@ -325,6 +371,44 @@ window.TaahudAdmin = (function () {
       if (error) return showToast("roster-toast", "تعذر ضبط كلمات المرور", "error");
       if (!data.length) return showToast("roster-toast", "لا توجد حسابات تحتاج إلى إعادة ضبط", "success");
       showCredentials(data);
+    });
+    document.getElementById("reset-all-points-btn").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      if (!window.confirm(
+        "سيتم تصفير نقاط كل الطلاب نهائيًا مع الاحتفاظ بكل الجلسات والسجلات. هل تريد الاستمرار؟"
+      )) return;
+
+      const confirmation = window.prompt('للتأكيد اكتب كلمة "تصفير" كما هي:');
+      if (confirmation === null) return;
+      if (confirmation.trim() !== "تصفير") {
+        showToast("roster-toast", "لم يتم التنفيذ لأن كلمة التأكيد غير صحيحة", "error");
+        return;
+      }
+
+      const reasonInput = window.prompt("اكتب سبب تصفير نقاط الجميع (إلزامي):");
+      if (reasonInput === null) return;
+      const reason = reasonInput.trim();
+      if (!reason) {
+        showToast("roster-toast", "يجب كتابة سبب التصفير", "error");
+        return;
+      }
+
+      button.disabled = true;
+      const { data, error } = await state.client.rpc("admin_reset_all_points", { change_reason: reason });
+      button.disabled = false;
+
+      if (error) {
+        console.error("[Ta'ahud] Failed to reset all points", error);
+        showToast("roster-toast", "حدث خطأ أثناء تصفير نقاط الجميع", "error");
+        return;
+      }
+
+      showToast(
+        "roster-toast",
+        "تم تصفير " + formatNumber(data && data.removedPoints) + " نقطة من جميع الحسابات",
+        "success"
+      );
+      await refreshRoster();
     });
     document.getElementById("import-students-btn").addEventListener("click", async () => {
       const file = document.getElementById("bulk-student-file").files[0];

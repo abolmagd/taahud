@@ -55,7 +55,9 @@ async function installMock(page, admin) {
     }
     const client = {
       from: query,
-      rpc(name) {
+      rpc(name, args) {
+        window.__rpcCalls = window.__rpcCalls || [];
+        window.__rpcCalls.push({ name, args });
         if (name === "student_login") {
           return Promise.resolve({ data: { accessToken: "token", student: mockStudents[0], mustChangePassword: false }, error: null });
         }
@@ -73,6 +75,12 @@ async function installMock(page, admin) {
         }
         if (name === "record_student_session") {
           return Promise.resolve({ data: { sessionDate: "2026-07-17", pointsAwarded: 15 }, error: null });
+        }
+        if (name === "admin_reset_student_points") {
+          return Promise.resolve({ data: { removedPoints: 21, affectedSessions: 2 }, error: null });
+        }
+        if (name === "admin_reset_all_points") {
+          return Promise.resolve({ data: { removedPoints: 36, affectedSessions: 2 }, error: null });
         }
         return Promise.resolve({ data: null, error: null });
       },
@@ -124,6 +132,25 @@ async function installMock(page, admin) {
         await page.click('[data-tab="roster"]');
         await page.selectOption("#roster-sort", "points-desc");
         await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === 3);
+        page.on("dialog", async (dialog) => {
+          if (dialog.type() === "prompt") {
+            await dialog.accept(dialog.message().includes("للتأكيد") ? "تصفير" : "اختبار آلي");
+          } else {
+            await dialog.accept();
+          }
+        });
+        await page.click('[data-action="reset-student-points"]');
+        await page.waitForFunction(() => window.__rpcCalls.some((call) => call.name === "admin_reset_student_points"));
+        await page.click("#reset-all-points-btn");
+        await page.waitForFunction(() => window.__rpcCalls.some((call) => call.name === "admin_reset_all_points"));
+        await page.evaluate(() => {
+          const studentCall = window.__rpcCalls.find((call) => call.name === "admin_reset_student_points");
+          const allCall = window.__rpcCalls.find((call) => call.name === "admin_reset_all_points");
+          window.__adminPointResetAudit = Boolean(
+            studentCall && studentCall.args.target_student_id && studentCall.args.change_reason === "اختبار آلي" &&
+            allCall && allCall.args.change_reason === "اختبار آلي"
+          );
+        });
       }
       await page.screenshot({ path: `${outputDir}/${kind}-${viewport.name}-audit.png`, fullPage: true });
       const metrics = await page.evaluate(() => ({
@@ -141,6 +168,7 @@ async function installMock(page, admin) {
           Array.from(document.querySelectorAll("#roster-body tr td:nth-child(4)"))
             .map((cell) => Number(cell.textContent)).every((value, index, values) => !index || values[index - 1] >= value),
         listenerTypesWork: window.__listenerTypeAudit !== false,
+        adminPointResetActionsWork: window.__adminPointResetAudit !== false,
       }));
       results.push({ kind, viewport: viewport.name, errors, metrics });
       await page.close();
@@ -150,7 +178,8 @@ async function installMock(page, admin) {
   console.log(JSON.stringify(results, null, 2));
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
-    || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork)) process.exitCode = 1;
+    || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
+    || !result.metrics.adminPointResetActionsWork)) process.exitCode = 1;
 })().catch((error) => {
   console.error(error);
   process.exit(1);
