@@ -532,6 +532,10 @@ window.TaahudAdmin = (function () {
     return new Date(value).toLocaleDateString("ar-EG", { day: "numeric", month: "short" });
   }
 
+  function shortWeekday(value) {
+    return new Date(value).toLocaleDateString("ar-EG", { weekday: "short" });
+  }
+
   function sessionDisplayDate(session) {
     return session.sessionDate || session.createdAt;
   }
@@ -637,6 +641,8 @@ window.TaahudAdmin = (function () {
   function renderDailyActivity(sessions, referenceDate) {
     const container = document.getElementById("overview-daily-activity");
     container.innerHTML = "";
+    container.setAttribute("role", "list");
+    container.setAttribute("aria-label", "نشاط آخر سبعة أيام بالنقاط والجلسات والصفحات");
     const days = [];
     const ref = new Date(referenceDate);
     for (let offset = 6; offset >= 0; offset -= 1) {
@@ -659,15 +665,42 @@ window.TaahudAdmin = (function () {
     days.forEach((day) => {
       const item = document.createElement("div");
       item.className = "activity-day";
-      item.innerHTML =
-        '<span class="activity-bar" style="height:' +
-        (maxPoints ? Math.max(10, (day.points / maxPoints) * 100) : 10) +
-        '%"></span><strong>' +
-        day.sessions +
-        "</strong><small>" +
-        shortDate(day.date) +
-        "</small>";
-      item.title = day.pages + " صفحة · " + day.points + " نقطة";
+      item.setAttribute("role", "listitem");
+      const level = day.points && maxPoints ? Math.max(0.12, day.points / maxPoints) : 0;
+      item.style.setProperty("--activity-level", level);
+      item.classList.toggle("activity-day-empty", day.points === 0);
+      item.setAttribute(
+        "aria-label",
+        shortWeekday(day.date) + "، " + shortDate(day.date) + "، " + day.points +
+          " نقطة، " + day.sessions + " جلسة، " + formatNumber(day.pages) + " صفحة"
+      );
+
+      const plot = document.createElement("div");
+      plot.className = "activity-plot";
+      plot.setAttribute("aria-hidden", "true");
+      const value = document.createElement("strong");
+      value.className = "activity-value";
+      value.textContent = formatNumber(day.points);
+      const track = document.createElement("div");
+      track.className = "activity-track";
+      const bar = document.createElement("span");
+      bar.className = "activity-bar";
+      track.appendChild(bar);
+      plot.append(value, track);
+
+      const meta = document.createElement("div");
+      meta.className = "activity-day-meta";
+      const weekday = document.createElement("strong");
+      weekday.textContent = shortWeekday(day.date);
+      const date = document.createElement("small");
+      date.textContent = shortDate(day.date);
+      meta.append(weekday, date);
+
+      const summary = document.createElement("small");
+      summary.className = "activity-day-summary";
+      summary.textContent = day.sessions + " جلسة · " + formatNumber(day.pages) + " صفحة";
+
+      item.append(plot, meta, summary);
       container.appendChild(item);
     });
   }

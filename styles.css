@@ -415,38 +415,106 @@ body {
   grid-column: span 2;
 }
 
+.dashboard-full {
+  grid-column: 1 / -1;
+}
+
 .activity-strip {
-  min-height: 180px;
   display: grid;
-  grid-template-columns: repeat(7, minmax(42px, 1fr));
-  gap: 10px;
-  align-items: end;
+  grid-template-columns: repeat(7, minmax(76px, 1fr));
+  gap: 16px;
+  min-height: 224px;
+  padding-top: 8px;
+  direction: rtl;
 }
 
 .activity-day {
-  min-height: 150px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  grid-template-rows: 144px auto auto;
+  gap: 8px;
+  min-width: 0;
   color: var(--muted);
   text-align: center;
 }
 
-.activity-bar {
+.activity-plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 144px;
+  border-bottom: 1px solid var(--line);
+}
+
+.activity-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   width: 100%;
-  min-height: 10px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, var(--teal) 0%, var(--accent) 100%);
+  height: 112px;
 }
 
-.activity-day strong {
+.activity-bar {
+  position: relative;
+  display: block;
+  width: clamp(28px, 58%, 52px);
+  height: calc(var(--activity-level) * 112px);
+  border-radius: 6px 6px 2px 2px;
+  background: var(--accent);
+  box-shadow: 0 8px 18px rgba(161, 98, 7, 0.18);
+}
+
+.activity-bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  border-radius: inherit;
+  background: var(--teal);
+}
+
+.activity-day-empty .activity-bar {
+  height: 0;
+  box-shadow: none;
+}
+
+.activity-day-empty .activity-bar::before {
+  display: none;
+}
+
+.activity-value {
+  position: absolute;
+  bottom: calc(var(--activity-level) * 112px + 8px);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.activity-day-empty .activity-value {
+  color: var(--muted);
+}
+
+.activity-day-meta {
+  display: grid;
+  gap: 2px;
+}
+
+.activity-day-meta strong {
   color: var(--brand);
+  font-size: 0.9rem;
 }
 
-.activity-day small {
+.activity-day-meta small,
+.activity-day-summary {
   font-size: 0.78rem;
+}
+
+.activity-day-summary {
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .rank-list,
@@ -928,6 +996,10 @@ hr.divider {
   .dashboard-wide {
     grid-column: span 2;
   }
+
+  .dashboard-full {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -946,8 +1018,7 @@ hr.divider {
     flex: 1;
   }
 
-  .dashboard-grid,
-  .activity-strip {
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
@@ -956,18 +1027,74 @@ hr.divider {
   }
 
   .activity-strip {
+    grid-template-columns: 1fr;
+    gap: 8px;
     min-height: 0;
+    padding-top: 0;
   }
 
   .activity-day {
-    min-height: 58px;
     display: grid;
-    grid-template-columns: 1fr 42px 72px;
+    grid-template-columns: 72px minmax(0, 1fr) 112px;
+    grid-template-rows: 44px;
+    gap: 12px;
     align-items: center;
+    min-height: 44px;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+  }
+
+  .activity-day:last-child {
+    border-bottom: 0;
+  }
+
+  .activity-plot {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 8px;
+    height: auto;
+    border-bottom: 0;
+  }
+
+  .activity-value {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+    text-align: center;
+  }
+
+  .activity-track {
+    grid-column: 2;
+    grid-row: 1;
+    display: block;
+    width: 100%;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-soft);
   }
 
   .activity-bar {
-    height: 10px !important;
+    width: calc(var(--activity-level) * 100%);
+    height: 10px;
+    border-radius: inherit;
+  }
+
+  .activity-day-empty .activity-bar {
+    width: 0;
+    height: 10px;
+  }
+
+  .activity-day-meta {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .activity-day-summary {
+    grid-column: 3;
+    grid-row: 1;
+    white-space: normal;
   }
 
   .student-stat-tiles {
