@@ -85,24 +85,13 @@
   function populateListenerSelect() {
     const selectEl = document.getElementById("listener-code");
     const currentValue = selectEl.value;
-    const allowedValues = new Set(["__outside__", "__listening_only__"]);
+    const allowedValues = new Set();
 
     selectEl.innerHTML = "";
     const placeholderOption = document.createElement("option");
     placeholderOption.value = "";
     placeholderOption.textContent = state.students.length ? "اختر الكود..." : "لا توجد أكواد متاحة الآن";
     selectEl.appendChild(placeholderOption);
-
-    [
-      { value: "__outside__", label: "شخص آخر خارج تعاهُد", brandText: true },
-      { value: "__listening_only__", label: "وِرد استماع" },
-    ].forEach((option) => {
-      const opt = document.createElement("option");
-      opt.value = option.value;
-      opt.textContent = option.label;
-      if (option.brandText) opt.className = "brand-text";
-      selectEl.appendChild(opt);
-    });
 
     state.students.forEach((student) => {
       allowedValues.add(student.code);
@@ -115,16 +104,13 @@
     selectEl.value = allowedValues.has(currentValue) ? currentValue : "";
   }
 
-  function deactivateListenerChips() {
-    document.querySelectorAll(".code-search-quick-options .chip").forEach((btn) => {
-      btn.classList.remove("active");
-    });
-  }
-
-  function readListenerSelection(value) {
-    if (value === "__outside__") return { listenerType: "outside", listenerCode: null };
-    if (value === "__listening_only__") return { listenerType: "listening_only", listenerCode: null };
-    return { listenerType: "student", listenerCode: value };
+  function readListenerSelection() {
+    const selectedType = document.querySelector('input[name="listener-type"]:checked');
+    const listenerType = selectedType ? selectedType.value : "";
+    return {
+      listenerType,
+      listenerCode: listenerType === "student" ? document.getElementById("listener-code").value : null,
+    };
   }
 
   function cairoDateParts(value) {
@@ -382,34 +368,31 @@
     });
   }
 
-  function wireListenerChips() {
-    document.querySelectorAll(".code-search-quick-options .chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const value = chip.dataset.quickValue;
-        document
-          .querySelectorAll(".code-search-quick-options .chip")
-          .forEach((btn) => btn.classList.toggle("active", btn === chip));
-        document.getElementById("listener-code").value = value;
-        syncListeningOnlyFields();
-      });
-    });
-    document.getElementById("listener-code").addEventListener("change", () => {
-      deactivateListenerChips();
-      syncListeningOnlyFields();
+  function wireListenerTypeOptions() {
+    document.querySelectorAll('input[name="listener-type"]').forEach((radio) => {
+      radio.addEventListener("change", syncListenerFields);
     });
   }
 
-  function syncListeningOnlyFields() {
-    const listeningOnly = document.getElementById("listener-code").value === "__listening_only__";
+  function syncListenerFields() {
+    const selection = readListenerSelection();
+    const studentListener = selection.listenerType === "student";
+    const listeningOnly = selection.listenerType === "listening_only";
+    const listenerCode = document.getElementById("listener-code");
     const method = document.getElementById("method");
     const satisfaction = document.getElementById("satisfaction");
-    document.getElementById("method-group").hidden = listeningOnly;
+    document.getElementById("listener-student-code-group").hidden = !studentListener;
+    listenerCode.required = studentListener;
+    if (!studentListener) listenerCode.value = "";
+    document.getElementById("method-group").hidden = false;
     document.getElementById("satisfaction-group").hidden = listeningOnly;
-    method.required = !listeningOnly;
+    document.getElementById("method-label").textContent = listeningOnly ? "طريقة الاستماع؟" : "طريقة التسميع؟";
+    method.required = true;
     satisfaction.required = !listeningOnly;
     if (listeningOnly) {
-      method.value = "استماع";
       satisfaction.value = "وردي كان ورد استماع";
+    } else if (satisfaction.value === "وردي كان ورد استماع") {
+      satisfaction.value = "";
     }
   }
 
@@ -437,7 +420,7 @@
     const submitBtn = document.getElementById("submit-btn");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const listenerValue = document.getElementById("listener-code").value;
+      const listenerSelection = readListenerSelection();
       const pagesRaw = document.getElementById("pages").value;
       const pagesValue = Number(pagesRaw);
       const methodValue = document.getElementById("method").value;
@@ -446,7 +429,8 @@
       const sessionDate = document.getElementById("session-date").value;
 
       if (
-        !listenerValue ||
+        !listenerSelection.listenerType ||
+        (listenerSelection.listenerType === "student" && !listenerSelection.listenerCode) ||
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
         pagesValue <= 0 ||
@@ -459,7 +443,6 @@
         return;
       }
 
-      const listenerSelection = readListenerSelection(listenerValue);
       if (listenerSelection.listenerType === "student" && listenerSelection.listenerCode === state.student.code) {
         showToast("toast", "لا يمكن اختيار كودك كسامع للجلسة", "error");
         return;
@@ -486,8 +469,7 @@
         form.reset();
         document.getElementById("session-date-group").hidden = true;
         document.getElementById("session-date").required = false;
-        deactivateListenerChips();
-        syncListeningOnlyFields();
+        syncListenerFields();
         renderDashboard(await loadProfile());
         const details = "تاريخ " + formatShortDate(data.sessionDate) + " · " + data.pointsAwarded + " نقطة";
         document.getElementById("session-receipt-details").textContent = details;
@@ -590,7 +572,7 @@
     wireStudentNavigation();
     wirePeriodFilter("student-stats-filter", "statsPeriod", renderStats);
     wirePeriodFilter("student-records-filter", "recordsPeriod", renderHistory);
-    wireListenerChips();
+    wireListenerTypeOptions();
     wireSessionTiming();
     wireCheckin();
     wireLogout();

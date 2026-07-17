@@ -79,12 +79,26 @@
           <fieldset class="form-section">
             <legend>بيانات الجلسة</legend>
             <div class="form-group form-group-wide">
-              <label for="listener-code">كود الحافظ الذي سمعت عليه</label>
-              <div class="code-search-quick-options">
-                <button type="button" class="chip" data-quick-value="__outside__">شخص آخر خارج <span class="brand-text">تعاهُد</span></button>
-                <button type="button" class="chip" data-quick-value="__listening_only__">وِرد استماع</button>
+              <span class="field-label" id="listener-type-label">نوع الجلسة</span>
+              <div class="listener-type-grid" role="radiogroup" aria-labelledby="listener-type-label">
+                <label class="listener-type-card">
+                  <input type="radio" name="listener-type" value="student" required />
+                  <span>تسميع داخل <span class="brand-text">تعاهُد</span></span>
+                </label>
+                <label class="listener-type-card">
+                  <input type="radio" name="listener-type" value="outside" required />
+                  <span>شخص آخر خارج <span class="brand-text">تعاهُد</span></span>
+                </label>
+                <label class="listener-type-card">
+                  <input type="radio" name="listener-type" value="listening_only" required />
+                  <span>وِرد استماع</span>
+                </label>
               </div>
-              <select id="listener-code" required aria-describedby="listener-code-error">
+            </div>
+
+            <div class="form-group form-group-wide" id="listener-student-code-group" hidden>
+              <label for="listener-code">كود الحافظ الذي سمعت عليه</label>
+              <select id="listener-code" aria-describedby="listener-code-error">
                 <option value="">اختر الكود...</option>
               </select>
               <span class="field-error" id="listener-code-error" hidden></span>
@@ -120,7 +134,7 @@
           <fieldset class="form-section">
             <legend>تفاصيل التسميع</legend>
             <div class="form-group" id="method-group">
-              <label for="method">طريقة التسميع؟</label>
+              <label for="method" id="method-label">طريقة التسميع؟</label>
               <select id="method" required>
                 <option value="">اختر...</option>
                 <option value="تليجرام">تليجرام</option>

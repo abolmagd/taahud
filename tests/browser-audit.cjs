@@ -103,6 +103,20 @@ async function installMock(page, admin) {
         await page.fill("#login-password", "password1");
         await page.click("#student-login-btn");
         await page.waitForSelector("#student-dashboard:not([hidden])");
+        await page.check('input[name="listener-type"][value="student"]');
+        const studentShowsCode = await page.locator("#listener-student-code-group").isVisible();
+        await page.check('input[name="listener-type"][value="outside"]');
+        const outsideHidesCode = !(await page.locator("#listener-student-code-group").isVisible());
+        await page.check('input[name="listener-type"][value="listening_only"]');
+        const listeningState = await page.evaluate(() => ({
+          codeHidden: document.getElementById("listener-student-code-group").hidden,
+          methodVisible: !document.getElementById("method-group").hidden,
+          satisfactionHidden: document.getElementById("satisfaction-group").hidden,
+        }));
+        await page.evaluate((passed) => { window.__listenerTypeAudit = passed; },
+          studentShowsCode && outsideHidesCode && listeningState.codeHidden &&
+          listeningState.methodVisible && listeningState.satisfactionHidden);
+        await page.screenshot({ path: `${outputDir}/student-form-${viewport.name}-audit.png`, fullPage: true });
         await page.click('[data-student-view="stats"]');
       } else {
         await page.waitForSelector("#dashboard-view:not([hidden])");
@@ -125,6 +139,7 @@ async function installMock(page, admin) {
         rosterPointsDescending: !document.querySelector("#roster-sort") ||
           Array.from(document.querySelectorAll("#roster-body tr td:nth-child(4)"))
             .map((cell) => Number(cell.textContent)).every((value, index, values) => !index || values[index - 1] >= value),
+        listenerTypesWork: window.__listenerTypeAudit !== false,
       }));
       results.push({ kind, viewport: viewport.name, errors, metrics });
       await page.close();
@@ -134,7 +149,7 @@ async function installMock(page, admin) {
   console.log(JSON.stringify(results, null, 2));
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
-    || !result.metrics.rosterPointsDescending)) process.exitCode = 1;
+    || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork)) process.exitCode = 1;
 })().catch((error) => {
   console.error(error);
   process.exit(1);
