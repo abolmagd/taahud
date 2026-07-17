@@ -64,6 +64,14 @@ as $$
   select (now() at time zone 'Africa/Cairo')::date;
 $$;
 
+create or replace function public.taahud_normalize_student_code(input_code text)
+returns text
+language sql
+immutable
+as $$
+  select translate(trim(coalesce(input_code, '')), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789');
+$$;
+
 create or replace function public.taahud_generate_temporary_password()
 returns text
 language sql
@@ -145,7 +153,7 @@ begin
   select * into matched
   from public.students s
   where s.active
-    and s.code = trim(auth_code)
+    and public.taahud_normalize_student_code(s.code) = public.taahud_normalize_student_code(auth_code)
     and s.password_hash = extensions.crypt(auth_password, s.password_hash)
   limit 1;
 
@@ -355,7 +363,10 @@ begin
   end if;
 
   if p_listener_type = 'student' then
-    select * into listener from public.students where active and code = trim(p_listener_code) limit 1;
+    select * into listener from public.students
+    where active
+      and public.taahud_normalize_student_code(code) = public.taahud_normalize_student_code(p_listener_code)
+    limit 1;
     if listener.id is null then raise exception 'invalid_listener' using errcode = 'P0001'; end if;
     if listener.id = reciter.id then raise exception 'self_listener_not_allowed' using errcode = 'P0001'; end if;
   end if;
@@ -414,7 +425,7 @@ begin
   end if;
   temp_password := public.taahud_generate_temporary_password();
   insert into public.students (code, name, active, password_hash, password_changed_at)
-  values (trim(p_code), trim(p_name), true, extensions.crypt(temp_password, extensions.gen_salt('bf')), null)
+  values (public.taahud_normalize_student_code(p_code), trim(p_name), true, extensions.crypt(temp_password, extensions.gen_salt('bf')), null)
   returning * into created;
   insert into public.admin_audit_log(admin_id, action, entity_type, entity_id, new_data)
   values(auth.uid(), 'create', 'student', created.id, jsonb_build_object('code',created.code,'name',created.name));
@@ -570,6 +581,7 @@ grant select on public.admin_audit_log to authenticated;
 
 revoke execute on function public.taahud_generate_temporary_password() from public, anon, authenticated;
 revoke execute on function public.taahud_student_id_for_token(text) from public, anon, authenticated;
+revoke execute on function public.taahud_normalize_student_code(text) from public, anon, authenticated;
 revoke execute on function public.taahud_is_admin() from public, anon, authenticated;
 grant execute on function public.taahud_is_admin() to authenticated;
 revoke execute on function public.create_student_with_temp_password(text,text) from public, anon;

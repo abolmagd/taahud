@@ -5,6 +5,13 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.TaahudStudentDashboard = api;
 })(typeof self !== "undefined" ? self : this, function () {
+  function normalizeStudentCode(value) {
+    return String(value == null ? "" : value)
+      .trim()
+      .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+      .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+  }
+
   function localDate(value) {
     if (value instanceof Date) return new Date(value.getTime());
     if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -107,6 +114,7 @@
   }
 
   return {
+    normalizeStudentCode,
     periodBounds,
     filterSessionsByPeriod,
     aggregateStudentSessions,

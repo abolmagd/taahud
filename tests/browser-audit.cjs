@@ -99,10 +99,11 @@ async function installMock(page, admin) {
       await installMock(page, kind === "admin");
       await page.goto(baseUrl + (kind === "admin" ? "/admin.html" : "/index.html"));
       if (kind === "student") {
-        await page.fill("#login-code", "001");
+        await page.fill("#login-code", "٠٠١");
         await page.fill("#login-password", "password1");
         await page.click("#student-login-btn");
         await page.waitForSelector("#student-dashboard:not([hidden])");
+        const arabicCodeNormalized = await page.inputValue("#login-code") === "001";
         await page.check('input[name="listener-type"][value="student"]');
         const studentShowsCode = await page.locator("#listener-student-code-group").isVisible();
         await page.check('input[name="listener-type"][value="outside"]');
@@ -114,7 +115,7 @@ async function installMock(page, admin) {
           satisfactionHidden: document.getElementById("satisfaction-group").hidden,
         }));
         await page.evaluate((passed) => { window.__listenerTypeAudit = passed; },
-          studentShowsCode && outsideHidesCode && listeningState.codeHidden &&
+          arabicCodeNormalized && studentShowsCode && outsideHidesCode && listeningState.codeHidden &&
           listeningState.methodVisible && listeningState.satisfactionHidden);
         await page.screenshot({ path: `${outputDir}/student-form-${viewport.name}-audit.png`, fullPage: true });
         await page.click('[data-student-view="stats"]');

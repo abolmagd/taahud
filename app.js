@@ -303,7 +303,9 @@
     const button = document.getElementById("student-login-btn");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const code = document.getElementById("login-code").value.trim();
+      const code = window.TaahudStudentDashboard.normalizeStudentCode(
+        document.getElementById("login-code").value
+      );
       const password = document.getElementById("login-password").value;
       if (!code || !password) {
         showToast("login-toast", "اكتب الكود وكلمة المرور", "error");
@@ -321,6 +323,7 @@
         state.student = student.student;
         sessionStorage.setItem(STUDENT_TOKEN_KEY, state.accessToken);
         document.getElementById("login-password").value = "";
+        document.getElementById("login-code").value = code;
         if (student.mustChangePassword) {
           showView("password");
         } else {

@@ -7,7 +7,15 @@ const {
   filterSessionsByPeriod,
   aggregateStudentSessions,
   currentStreak,
+  normalizeStudentCode,
 } = require("../student-dashboard.js");
+
+test("normalizeStudentCode accepts English, Arabic-Indic, and Persian digits", () => {
+  assert.equal(normalizeStudentCode(" 042 "), "042");
+  assert.equal(normalizeStudentCode("٠٤٢"), "042");
+  assert.equal(normalizeStudentCode("۰۴۲"), "042");
+  assert.equal(normalizeStudentCode("A٠٢"), "A02");
+});
 
 test("student periodBounds: week runs Saturday through Friday", () => {
   const bounds = periodBounds("week", new Date(2026, 6, 17, 18));
