@@ -69,7 +69,14 @@ returns text
 language sql
 immutable
 as $$
-  select translate(trim(coalesce(input_code, '')), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789');
+  with converted as (
+    select translate(trim(coalesce(input_code, '')), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789') as value
+  )
+  select case
+    when value ~ '^[0-9]+$' then coalesce(nullif(ltrim(value, '0'), ''), '0')
+    else value
+  end
+  from converted;
 $$;
 
 create or replace function public.taahud_generate_temporary_password()
@@ -423,9 +430,18 @@ begin
   if trim(coalesce(p_code,'')) = '' or trim(coalesce(p_name,'')) = '' then
     raise exception 'missing_required_fields' using errcode = 'P0001';
   end if;
+  if exists (
+    select 1 from public.students s
+    where public.taahud_normalize_student_code(s.code) = public.taahud_normalize_student_code(p_code)
+  ) then
+    raise exception 'duplicate_student_code' using errcode = 'P0001';
+  end if;
   temp_password := public.taahud_generate_temporary_password();
   insert into public.students (code, name, active, password_hash, password_changed_at)
-  values (public.taahud_normalize_student_code(p_code), trim(p_name), true, extensions.crypt(temp_password, extensions.gen_salt('bf')), null)
+  values (
+    translate(trim(p_code), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'),
+    trim(p_name), true, extensions.crypt(temp_password, extensions.gen_salt('bf')), null
+  )
   returning * into created;
   insert into public.admin_audit_log(admin_id, action, entity_type, entity_id, new_data)
   values(auth.uid(), 'create', 'student', created.id, jsonb_build_object('code',created.code,'name',created.name));

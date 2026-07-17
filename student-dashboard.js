@@ -6,10 +6,11 @@
   else root.TaahudStudentDashboard = api;
 })(typeof self !== "undefined" ? self : this, function () {
   function normalizeStudentCode(value) {
-    return String(value == null ? "" : value)
+    const normalized = String(value == null ? "" : value)
       .trim()
       .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
       .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+    return /^\d+$/.test(normalized) ? normalized.replace(/^0+(?=\d)/, "") : normalized;
   }
 
   function localDate(value) {

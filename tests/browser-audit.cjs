@@ -103,7 +103,7 @@ async function installMock(page, admin) {
         await page.fill("#login-password", "password1");
         await page.click("#student-login-btn");
         await page.waitForSelector("#student-dashboard:not([hidden])");
-        const arabicCodeNormalized = await page.inputValue("#login-code") === "001";
+        const arabicCodeNormalized = await page.inputValue("#login-code") === "1";
         await page.check('input[name="listener-type"][value="student"]');
         const studentShowsCode = await page.locator("#listener-student-code-group").isVisible();
         await page.check('input[name="listener-type"][value="outside"]');

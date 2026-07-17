@@ -11,10 +11,11 @@ const {
 } = require("../student-dashboard.js");
 
 test("normalizeStudentCode accepts English, Arabic-Indic, and Persian digits", () => {
-  assert.equal(normalizeStudentCode(" 042 "), "042");
-  assert.equal(normalizeStudentCode("٠٤٢"), "042");
-  assert.equal(normalizeStudentCode("۰۴۲"), "042");
+  assert.equal(normalizeStudentCode(" 042 "), "42");
+  assert.equal(normalizeStudentCode("٠٤٢"), "42");
+  assert.equal(normalizeStudentCode("۰۴۲"), "42");
   assert.equal(normalizeStudentCode("A٠٢"), "A02");
+  assert.equal(normalizeStudentCode("000"), "0");
 });
 
 test("student periodBounds: week runs Saturday through Friday", () => {

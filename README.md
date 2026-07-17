@@ -15,6 +15,8 @@ project, its own Vercel deployment.
    If the random-password upgrade was previously deployed, run
    `supabase-fix-default-password-reset.sql` once to restore `123456789` for
    student add/reset actions.
+   Run `supabase-fix-code-leading-zeros.sql` once to make numeric login codes
+   ignore Arabic/English digit shape and leading zeroes.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
