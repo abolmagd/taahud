@@ -4,10 +4,12 @@ window.TaahudAdmin = (function () {
   const ADMIN_EMAIL = "admin@taahud.local";
   const LIVE_REFRESH_DEBOUNCE_MS = 350;
   const LIVE_POLL_INTERVAL_MS = 15000;
+  const AT_RISK_PREVIEW_LIMIT = 8;
   const state = { client: null, credentials: [], logPage: 1, logPageSize: 25, filteredLogSessions: [] };
   let adminChangesChannel = null;
   let liveRefreshTimer = null;
   let pollingTimer = null;
+  let currentAtRiskStudents = [];
 
   function getClient() {
     if (!window._supabase) {
@@ -839,6 +841,52 @@ window.TaahudAdmin = (function () {
     });
   }
 
+  function atRiskActivityLabel(student) {
+    if (!student.lastActivity) return "لم يسجل أي جلسة من قبل";
+    return "آخر نشاط: " + new Date(student.lastActivity).toLocaleDateString("ar-EG", {
+      day: "numeric", month: "long", year: "numeric",
+    });
+  }
+
+  function createAtRiskItem(student, dialogItem) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = dialogItem ? "followup-item" : "compact-item compact-item-button";
+
+    const title = document.createElement("span");
+    title.className = dialogItem ? "followup-item-title" : "compact-title";
+    title.textContent = student.code + " - " + student.name;
+
+    const meta = document.createElement("span");
+    meta.className = dialogItem ? "followup-item-meta" : "compact-meta";
+    meta.textContent = atRiskActivityLabel(student);
+
+    item.append(title, meta);
+    item.addEventListener("click", () => {
+      const dialog = document.getElementById("at-risk-dialog");
+      if (dialog.open) dialog.close();
+      showStudentDetail(student);
+    });
+    return item;
+  }
+
+  function renderAtRiskDialog() {
+    const list = document.getElementById("at-risk-dialog-list");
+    list.innerHTML = "";
+    currentAtRiskStudents.forEach((student) => list.appendChild(createAtRiskItem(student, true)));
+    document.getElementById("at-risk-dialog-summary").textContent =
+      currentAtRiskStudents.length + " طالب نشط لم يسجلوا خلال آخر ٧ أيام";
+  }
+
+  function wireAtRiskDialog() {
+    const dialog = document.getElementById("at-risk-dialog");
+    document.getElementById("overview-at-risk-more").addEventListener("click", () => {
+      renderAtRiskDialog();
+      dialog.showModal();
+    });
+    document.getElementById("close-at-risk-dialog").addEventListener("click", () => dialog.close());
+  }
+
   function renderBarList(elementId, rows, valueKey) {
     const container = document.getElementById(elementId);
     container.innerHTML = "";
@@ -972,19 +1020,39 @@ window.TaahudAdmin = (function () {
       recentIds.add(session.studentId);
       if (session.listenerType === "student") recentIds.add(session.listenerStudentId);
     });
-    const atRisk = activeStudents.filter((student) => !recentIds.has(student.id));
-    setText("overview-at-risk-count", atRisk.length);
+    const latestActivity = new Map();
+    sessions.forEach((session) => {
+      const activity = new Date(sessionDisplayDate(session)).getTime();
+      if (!Number.isFinite(activity)) return;
+      const participantIds = [session.studentId];
+      if (session.listenerType === "student") participantIds.push(session.listenerStudentId);
+      participantIds.forEach((studentId) => {
+        if (studentId && (!latestActivity.has(studentId) || activity > latestActivity.get(studentId))) {
+          latestActivity.set(studentId, activity);
+        }
+      });
+    });
+    currentAtRiskStudents = activeStudents
+      .filter((student) => !recentIds.has(student.id))
+      .map((student) => Object.assign({}, student, { lastActivity: latestActivity.get(student.id) || null }))
+      .sort((a, b) => {
+        if (!a.lastActivity && b.lastActivity) return -1;
+        if (a.lastActivity && !b.lastActivity) return 1;
+        const activityDifference = (a.lastActivity || 0) - (b.lastActivity || 0);
+        if (activityDifference) return activityDifference;
+        return sortStudentsByCode([a, b])[0] === a ? -1 : 1;
+      });
+    setText("overview-at-risk-count", currentAtRiskStudents.length);
     const atRiskContainer = document.getElementById("overview-at-risk-students");
     atRiskContainer.innerHTML = "";
-    if (!atRisk.length) clearAndEmpty(atRiskContainer, "كل الطلاب لديهم نشاط خلال آخر ٧ أيام");
-    atRisk.slice(0, 8).forEach((student) => {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "compact-item compact-item-button";
-      item.textContent = student.code + " - " + student.name;
-      item.addEventListener("click", () => showStudentDetail(student));
-      atRiskContainer.appendChild(item);
+    if (!currentAtRiskStudents.length) clearAndEmpty(atRiskContainer, "كل الطلاب لديهم نشاط خلال آخر ٧ أيام");
+    currentAtRiskStudents.slice(0, AT_RISK_PREVIEW_LIMIT).forEach((student) => {
+      atRiskContainer.appendChild(createAtRiskItem(student, false));
     });
+    const moreButton = document.getElementById("overview-at-risk-more");
+    moreButton.hidden = currentAtRiskStudents.length <= AT_RISK_PREVIEW_LIMIT;
+    moreButton.textContent = "إظهار المزيد (" + currentAtRiskStudents.length + ")";
+    if (document.getElementById("at-risk-dialog").open) renderAtRiskDialog();
 
     renderDailyActivity(sessions, now);
     renderTopStudents(window.TaahudStats.topStudents(activeStudents, sessions, "month", now, 6));
@@ -1248,6 +1316,7 @@ window.TaahudAdmin = (function () {
     wireRosterTools();
     wireRosterSearch();
     wireStudentDetail();
+    wireAtRiskDialog();
     wireSettings();
     wireStatsControls();
     wireLogControls();

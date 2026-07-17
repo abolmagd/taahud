@@ -110,6 +110,9 @@
           <p class="muted">طلاب نشطون بلا جلسات خلال ٧ أيام</p>
         </div>
         <div class="compact-list" id="overview-at-risk-students"></div>
+        <button type="button" class="btn btn-secondary overview-more-button" id="overview-at-risk-more" hidden>
+          إظهار المزيد
+        </button>
       </section>
 
       <section class="card dashboard-panel">
@@ -403,6 +406,17 @@
     </section>
     </main>
   </div>
+
+  <dialog id="at-risk-dialog" class="app-dialog followup-dialog" aria-labelledby="at-risk-dialog-title">
+    <div class="dialog-heading">
+      <h2 id="at-risk-dialog-title">الطلاب بحاجة إلى متابعة</h2>
+      <p class="muted" id="at-risk-dialog-summary"></p>
+    </div>
+    <div class="followup-list" id="at-risk-dialog-list"></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-secondary" id="close-at-risk-dialog">إغلاق</button>
+    </div>
+  </dialog>
 
   <dialog id="credentials-dialog" class="app-dialog" aria-labelledby="credentials-title">
     <h2 id="credentials-title">بيانات الدخول الافتراضية</h2>

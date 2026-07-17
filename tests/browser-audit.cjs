@@ -9,6 +9,13 @@ const students = [
   { id: "s1", code: "001", name: "أحمد محمد", active: true, created_at: "2026-07-01T10:00:00Z" },
   { id: "s2", code: "002", name: "سارة علي", active: true, created_at: "2026-07-02T10:00:00Z" },
   { id: "s3", code: "003", name: "يوسف حسن", active: false, created_at: "2026-07-03T10:00:00Z" },
+  ...Array.from({ length: 9 }, (_, index) => ({
+    id: "s" + (index + 4),
+    code: String(index + 4).padStart(3, "0"),
+    name: "طالب متابعة " + (index + 1),
+    active: true,
+    created_at: "2026-06-01T10:00:00Z",
+  })),
 ];
 
 const sessions = [
@@ -95,6 +102,7 @@ async function installMock(page, admin) {
       removeChannel() {},
     };
     window.supabase = { createClient() { return client; } };
+    window.__mockStudentCount = mockStudents.length;
   }, { mockStudents: students, mockSessions: sessions, isAdmin: admin });
 }
 
@@ -132,9 +140,16 @@ async function installMock(page, admin) {
         await page.click('[data-student-view="stats"]');
       } else {
         await page.waitForSelector("#dashboard-view:not([hidden])");
+        await page.waitForSelector("#overview-at-risk-more:not([hidden])");
+        await page.click("#overview-at-risk-more");
+        await page.waitForSelector("#at-risk-dialog[open]");
+        const atRiskDialogCount = await page.locator("#at-risk-dialog-list .followup-item").count();
+        await page.screenshot({ path: `${outputDir}/at-risk-dialog-${viewport.name}-audit.png`, fullPage: true });
+        await page.click("#close-at-risk-dialog");
+        await page.evaluate((count) => { window.__atRiskDialogAudit = count === 9; }, atRiskDialogCount);
         await page.click('[data-tab="roster"]');
         await page.selectOption("#roster-sort", "points-desc");
-        await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === 3);
+        await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === window.__mockStudentCount);
         page.on("dialog", async (dialog) => {
           if (dialog.type() === "prompt") {
             await dialog.accept(dialog.message().includes("للتأكيد") ? "تصفير" : "اختبار آلي");
@@ -186,6 +201,7 @@ async function installMock(page, admin) {
         listenerTypesWork: window.__listenerTypeAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
+        atRiskDialogWork: window.__atRiskDialogAudit !== false,
       }));
       results.push({ kind, viewport: viewport.name, errors, metrics });
       await page.close();
@@ -196,7 +212,8 @@ async function installMock(page, admin) {
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
     || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
-    || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork)) process.exitCode = 1;
+    || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
+    || !result.metrics.atRiskDialogWork)) process.exitCode = 1;
 })().catch((error) => {
   console.error(error);
   process.exit(1);
