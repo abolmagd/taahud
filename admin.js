@@ -456,11 +456,13 @@ window.TaahudAdmin = (function () {
     return window.TaahudPoints.normalizePointRules(data.value);
   }
 
-  async function savePointRules(rules) {
-    const { error } = await state.client
-      .from("settings")
-      .upsert({ key: "point_rules", value: rules }, { onConflict: "key" });
-    return !error;
+  async function savePointRules(rules, reason) {
+    return state.client.rpc("admin_update_point_rules", {
+      p_daily_checkin: rules.dailyCheckin,
+      p_reciter_page: rules.reciterPage,
+      p_listener_page: rules.listenerPage,
+      change_reason: reason,
+    });
   }
 
   function cairoDate() {
@@ -559,9 +561,38 @@ window.TaahudAdmin = (function () {
   function wireSettings() {
     document.getElementById("settings-form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const ok = await savePointRules(getPointRulesFromForm());
-      showToast("settings-toast", ok ? "تم الحفظ" : "حدث خطأ أثناء الحفظ", ok ? "success" : "error");
-      if (ok) await refreshActivePanels();
+      const rules = getPointRulesFromForm();
+      if (!window.confirm(
+        "سيتم إعادة حساب نقاط كل الجلسات القديمة والجديدة بالقواعد الحالية. " +
+        "هذا سيستبدل أي تصفير أو تعديل يدوي سابق للنقاط. هل تريد الاستمرار؟"
+      )) return;
+
+      const reasonInput = window.prompt("اكتب سبب تغيير قواعد النقاط (إلزامي):");
+      if (reasonInput === null) return;
+      const reason = reasonInput.trim();
+      if (!reason) {
+        showToast("settings-toast", "يجب كتابة سبب تغيير النقاط", "error");
+        return;
+      }
+
+      const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      const { data, error } = await savePointRules(rules, reason);
+      submitButton.disabled = false;
+
+      if (error) {
+        console.error("[Ta'ahud] Failed to update point rules", error);
+        showToast("settings-toast", "حدث خطأ أثناء حفظ وإعادة حساب النقاط", "error");
+        return;
+      }
+
+      showToast(
+        "settings-toast",
+        "تم الحفظ وإعادة حساب " + formatNumber(data && data.updatedSessions) +
+          " جلسة. إجمالي النقاط الآن " + formatNumber(data && data.newTotalPoints),
+        "success"
+      );
+      await refreshSettingsForm();
     });
   }
 

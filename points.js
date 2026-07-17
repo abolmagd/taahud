@@ -2,7 +2,7 @@
 // Ta'ahud — Points calculation
 // Pure, dependency-free logic shared by the check-in page (app.js)
 // and Node tests. A session snapshots the points awarded to both
-// participants so future settings changes never rewrite history.
+// participants. Admin rule changes can deliberately recalculate that snapshot.
 // UMD/CommonJS because app.js is a classic script.
 // ═══════════════════════════════════════════════════════════════
 (function (root, factory) {

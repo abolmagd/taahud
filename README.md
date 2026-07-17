@@ -19,6 +19,8 @@ project, its own Vercel deployment.
    ignore Arabic/English digit shape and leading zeroes.
    Run `supabase-add-point-reset-actions.sql` once to enable the admin actions
    for resetting one student's points or all students' points.
+   Run `supabase-recalculate-historical-points.sql` once to make point-rule
+   changes recalculate all existing sessions.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
@@ -78,6 +80,8 @@ Deploy the project root to Vercel as a static site (no build command needed).
       a deactivated student disappears from the check-in dropdowns.
 - [ ] Admin can reset one student's points or all points without deleting any
       session, and each action appears in `admin_audit_log` with its reason.
+- [ ] Changing point rules recalculates all existing non-deleted sessions and
+      preserves the daily streak requirement for each student.
 - [ ] Admin stats table shows correct totals for day/week/month and sorts on
       column click.
 - [ ] Admin records list filters by text/student/type/method/date, exports CSV,

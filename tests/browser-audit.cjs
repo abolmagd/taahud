@@ -82,6 +82,9 @@ async function installMock(page, admin) {
         if (name === "admin_reset_all_points") {
           return Promise.resolve({ data: { removedPoints: 36, affectedSessions: 2 }, error: null });
         }
+        if (name === "admin_update_point_rules") {
+          return Promise.resolve({ data: { updatedSessions: 2, oldTotalPoints: 36, newTotalPoints: 54 }, error: null });
+        }
         return Promise.resolve({ data: null, error: null });
       },
       auth: {
@@ -151,6 +154,19 @@ async function installMock(page, admin) {
             allCall && allCall.args.change_reason === "اختبار آلي"
           );
         });
+        await page.click('[data-tab="settings"]');
+        await page.fill("#daily-checkin-points", "7");
+        await page.fill("#reciter-page-points", "3");
+        await page.fill("#listener-page-points", "2");
+        await page.click('#settings-form button[type="submit"]');
+        await page.waitForFunction(() => window.__rpcCalls.some((call) => call.name === "admin_update_point_rules"));
+        await page.evaluate(() => {
+          const rulesCall = window.__rpcCalls.find((call) => call.name === "admin_update_point_rules");
+          window.__historicalPointRulesAudit = Boolean(
+            rulesCall && rulesCall.args.p_daily_checkin === 7 && rulesCall.args.p_reciter_page === 3 &&
+            rulesCall.args.p_listener_page === 2 && rulesCall.args.change_reason === "اختبار آلي"
+          );
+        });
       }
       await page.screenshot({ path: `${outputDir}/${kind}-${viewport.name}-audit.png`, fullPage: true });
       const metrics = await page.evaluate(() => ({
@@ -169,6 +185,7 @@ async function installMock(page, admin) {
             .map((cell) => Number(cell.textContent)).every((value, index, values) => !index || values[index - 1] >= value),
         listenerTypesWork: window.__listenerTypeAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
+        historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
       }));
       results.push({ kind, viewport: viewport.name, errors, metrics });
       await page.close();
@@ -179,7 +196,7 @@ async function installMock(page, admin) {
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
     || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
-    || !result.metrics.adminPointResetActionsWork)) process.exitCode = 1;
+    || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork)) process.exitCode = 1;
 })().catch((error) => {
   console.error(error);
   process.exit(1);
