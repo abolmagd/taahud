@@ -6,9 +6,9 @@ const baseUrl = process.env.TAAHUD_BASE_URL || "http://127.0.0.1:4173";
 const outputDir = process.env.TAAHUD_SCREENSHOT_DIR || "/tmp";
 
 const students = [
-  { id: "s1", code: "001", name: "أحمد محمد", active: true },
-  { id: "s2", code: "002", name: "سارة علي", active: true },
-  { id: "s3", code: "003", name: "يوسف حسن", active: false },
+  { id: "s1", code: "001", name: "أحمد محمد", active: true, created_at: "2026-07-01T10:00:00Z" },
+  { id: "s2", code: "002", name: "سارة علي", active: true, created_at: "2026-07-02T10:00:00Z" },
+  { id: "s3", code: "003", name: "يوسف حسن", active: false, created_at: "2026-07-03T10:00:00Z" },
 ];
 
 const sessions = [
@@ -106,6 +106,9 @@ async function installMock(page, admin) {
         await page.click('[data-student-view="stats"]');
       } else {
         await page.waitForSelector("#dashboard-view:not([hidden])");
+        await page.click('[data-tab="roster"]');
+        await page.selectOption("#roster-sort", "points-desc");
+        await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === 3);
       }
       await page.screenshot({ path: `${outputDir}/${kind}-${viewport.name}-audit.png`, fullPage: true });
       const metrics = await page.evaluate(() => ({
@@ -119,6 +122,9 @@ async function installMock(page, admin) {
           .filter((field) => !field.labels || !field.labels.length).map((field) => field.id),
         unnamedButtons: Array.from(document.querySelectorAll("button"))
           .filter((button) => !button.textContent.trim() && !button.getAttribute("aria-label")).length,
+        rosterPointsDescending: !document.querySelector("#roster-sort") ||
+          Array.from(document.querySelectorAll("#roster-body tr td:nth-child(4)"))
+            .map((cell) => Number(cell.textContent)).every((value, index, values) => !index || values[index - 1] >= value),
       }));
       results.push({ kind, viewport: viewport.name, errors, metrics });
       await page.close();
@@ -127,7 +133,8 @@ async function installMock(page, admin) {
   await browser.close();
   console.log(JSON.stringify(results, null, 2));
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
-    || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons)) process.exitCode = 1;
+    || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
+    || !result.metrics.rosterPointsDescending)) process.exitCode = 1;
 })().catch((error) => {
   console.error(error);
   process.exit(1);

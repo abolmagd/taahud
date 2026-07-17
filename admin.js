@@ -58,26 +58,26 @@ window.TaahudAdmin = (function () {
   async function loadActiveStudents() {
     const { data, error } = await state.client
       .from("students")
-      .select("id, code, name, active")
+      .select("id, code, name, active, created_at")
       .eq("active", true)
       .order("code", { ascending: true });
     if (error) {
       console.error("[Ta'ahud] Failed to load students", error);
       return [];
     }
-    return sortStudentsByCode(data || []);
+    return sortStudentsByCode((data || []).map((student) => Object.assign({}, student, { createdAt: student.created_at })));
   }
 
   async function loadAllStudents() {
     const { data, error } = await state.client
       .from("students")
-      .select("id, code, name, active")
+      .select("id, code, name, active, created_at")
       .order("code", { ascending: true });
     if (error) {
       console.error("[Ta'ahud] Failed to load students", error);
       return [];
     }
-    return sortStudentsByCode(data || []);
+    return sortStudentsByCode((data || []).map((student) => Object.assign({}, student, { createdAt: student.created_at })));
   }
 
   function sortStudentsByCode(students) {
@@ -106,6 +106,14 @@ window.TaahudAdmin = (function () {
 
       const statusCell = document.createElement("td");
       statusCell.textContent = student.active ? "نشط" : "موقوف";
+
+      const pointsCell = document.createElement("td");
+      pointsCell.textContent = formatNumber(student.totalPoints);
+
+      const lastActivityCell = document.createElement("td");
+      lastActivityCell.textContent = student.lastActivity
+        ? new Date(student.lastActivity).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" })
+        : "لا يوجد نشاط";
 
       const actionCell = document.createElement("td");
       actionCell.style.display = "flex";
@@ -168,13 +176,15 @@ window.TaahudAdmin = (function () {
       row.appendChild(codeCell);
       row.appendChild(nameCell);
       row.appendChild(statusCell);
+      row.appendChild(pointsCell);
+      row.appendChild(lastActivityCell);
       row.appendChild(actionCell);
       body.appendChild(row);
     });
     if (!students.length) {
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 4;
+      cell.colSpan = 6;
       cell.className = "empty-cell";
       cell.textContent = "لا توجد نتائج مطابقة";
       row.appendChild(cell);
@@ -187,23 +197,22 @@ window.TaahudAdmin = (function () {
 
   function applyRosterFilter() {
     const query = document.getElementById("roster-search").value.trim().toLowerCase();
-    if (!query) {
-      renderRoster(currentRoster);
-      return;
-    }
-    renderRoster(
-      currentRoster.filter(
+    const matching = query
+      ? currentRoster.filter(
         (s) => s.code.toLowerCase().includes(query) || s.name.toLowerCase().includes(query)
       )
-    );
+      : currentRoster;
+    renderRoster(window.TaahudStats.sortStudentRoster(matching, document.getElementById("roster-sort").value));
   }
 
   function wireRosterSearch() {
     document.getElementById("roster-search").addEventListener("input", applyRosterFilter);
+    document.getElementById("roster-sort").addEventListener("change", applyRosterFilter);
   }
 
   async function refreshRoster() {
-    currentRoster = await loadAllStudents();
+    const [students, sessions] = await Promise.all([loadAllStudents(), loadSessionsForStats()]);
+    currentRoster = window.TaahudStats.enrichStudentRoster(students, sessions);
     applyRosterFilter();
     return currentRoster;
   }

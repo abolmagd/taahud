@@ -13,6 +13,8 @@ const {
   inactiveStudents,
   studentCurrentStreak,
   streakDistribution,
+  enrichStudentRoster,
+  sortStudentRoster,
 } = require("../stats.js");
 
 // ─── periodBounds ───
@@ -420,4 +422,33 @@ test("studentCurrentStreak and streakDistribution group current continuity", () 
   assert.equal(studentCurrentStreak("s1", sessions, reference), 2);
   assert.equal(studentCurrentStreak("s2", sessions, reference), 0);
   assert.deepEqual(streakDistribution(students, sessions, reference).map((group) => group.sessions), [1, 2, 0, 0]);
+});
+
+test("enrichStudentRoster calculates points and latest participation for both roles", () => {
+  const students = [
+    { id: "s1", code: "1", createdAt: "2026-07-01" },
+    { id: "s2", code: "2", createdAt: "2026-07-02" },
+    { id: "s3", code: "3", createdAt: "2026-07-03" },
+  ];
+  const sessions = [
+    { studentId: "s1", listenerType: "student", listenerStudentId: "s2", pointsAwarded: 12, listenerPointsAwarded: 7, createdAt: "2026-07-10T10:00:00Z" },
+    { studentId: "s2", listenerType: "outside", pointsAwarded: 5, listenerPointsAwarded: 0, createdAt: "2026-07-12T10:00:00Z" },
+  ];
+  const rows = enrichStudentRoster(students, sessions);
+  assert.equal(rows[0].totalPoints, 12);
+  assert.equal(rows[1].totalPoints, 12);
+  assert.equal(rows[1].lastActivity, new Date("2026-07-12T10:00:00Z").getTime());
+  assert.equal(rows[2].lastActivity, null);
+});
+
+test("sortStudentRoster supports point, newest, and last-active ordering with stable code ties", () => {
+  const rows = [
+    { id: "s1", code: "1", totalPoints: 10, createdAt: "2026-07-01", lastActivity: 100 },
+    { id: "s2", code: "2", totalPoints: 30, createdAt: "2026-07-03", lastActivity: null },
+    { id: "s3", code: "3", totalPoints: 10, createdAt: "2026-07-02", lastActivity: 300 },
+  ];
+  assert.deepEqual(sortStudentRoster(rows, "points-desc").map((row) => row.id), ["s2", "s1", "s3"]);
+  assert.deepEqual(sortStudentRoster(rows, "points-asc").map((row) => row.id), ["s1", "s3", "s2"]);
+  assert.deepEqual(sortStudentRoster(rows, "newest").map((row) => row.id), ["s2", "s3", "s1"]);
+  assert.deepEqual(sortStudentRoster(rows, "last-active").map((row) => row.id), ["s3", "s1", "s2"]);
 });

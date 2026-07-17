@@ -190,7 +190,7 @@ body {
 .field-help { color: var(--muted); }
 .field-error { color: var(--danger); font-weight: 700; }
 
-.form-group :invalid:not(:placeholder-shown) {
+.form-group [aria-invalid="true"] {
   border-color: var(--danger);
 }
 
@@ -817,6 +817,13 @@ body {
 
 .roster-tools .form-group { min-width: 230px; margin: 0; flex: 1; }
 
+.roster-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
 .log-filters .form-group { flex: 1 1 170px; margin: 0; }
 
 .pagination {
@@ -1169,6 +1176,7 @@ hr.divider {
 
   .roster-tools { align-items: stretch; }
   .roster-tools .btn { width: 100%; }
+  .roster-filter-grid { grid-template-columns: 1fr; gap: 0; }
 
   .log-filters { display: grid; grid-template-columns: 1fr 1fr; }
 

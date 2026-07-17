@@ -190,14 +190,26 @@
         <button type="button" class="btn btn-secondary" id="import-students-btn">استيراد الملف</button>
         <button type="button" class="btn btn-secondary" id="rotate-passwords-btn">ضبط كلمات المرور الافتراضية</button>
       </div>
-      <div class="form-group">
-        <label for="roster-search">البحث بالكود أو الاسم</label>
-        <input type="text" id="roster-search" autocomplete="off" placeholder="مثال: 042" />
+      <div class="roster-filter-grid">
+        <div class="form-group">
+          <label for="roster-search">البحث بالكود أو الاسم</label>
+          <input type="search" id="roster-search" autocomplete="off" placeholder="مثال: 042" />
+        </div>
+        <div class="form-group">
+          <label for="roster-sort">ترتيب الطلاب</label>
+          <select id="roster-sort">
+            <option value="code">حسب الكود</option>
+            <option value="points-desc">الأعلى نقاطًا</option>
+            <option value="points-asc">الأقل نقاطًا</option>
+            <option value="newest">الأحدث إضافة</option>
+            <option value="last-active">آخر ظهور</option>
+          </select>
+        </div>
       </div>
       <div class="table-wrap">
         <table class="table" id="roster-table">
           <thead>
-            <tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th></th></tr>
+            <tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>النقاط</th><th>آخر ظهور</th><th>الإجراءات</th></tr>
           </thead>
           <tbody id="roster-body"></tbody>
         </table>

@@ -285,6 +285,57 @@
     return groups;
   }
 
+  function enrichStudentRoster(students, sessions) {
+    const activity = new Map((students || []).map((student) => [student.id, { totalPoints: 0, lastActivity: null }]));
+    (sessions || []).forEach((session) => {
+      const timestamp = new Date(session.createdAt || session.sessionDate || 0).getTime();
+      const update = (studentId, points) => {
+        if (!studentId || !activity.has(studentId)) return;
+        const current = activity.get(studentId);
+        current.totalPoints += Number(points) || 0;
+        if (Number.isFinite(timestamp) && (!current.lastActivity || timestamp > current.lastActivity)) {
+          current.lastActivity = timestamp;
+        }
+      };
+      update(session.studentId, session.pointsAwarded);
+      if (session.listenerType === "student") {
+        update(session.listenerStudentId, session.listenerPointsAwarded);
+      }
+    });
+    return (students || []).map((student) => {
+      const values = activity.get(student.id) || { totalPoints: 0, lastActivity: null };
+      return Object.assign({}, student, values);
+    });
+  }
+
+  function compareStudentCodes(a, b) {
+    const first = Number(a.code);
+    const second = Number(b.code);
+    if (Number.isFinite(first) && Number.isFinite(second)) return first - second;
+    return String(a.code).localeCompare(String(b.code), "ar", { numeric: true });
+  }
+
+  function sortStudentRoster(students, mode) {
+    const sorted = (students || []).slice();
+    sorted.sort((a, b) => {
+      if (mode === "points-desc" || mode === "points-asc") {
+        const direction = mode === "points-asc" ? 1 : -1;
+        const difference = ((Number(a.totalPoints) || 0) - (Number(b.totalPoints) || 0)) * direction;
+        return difference || compareStudentCodes(a, b);
+      }
+      if (mode === "newest") {
+        const difference = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        return difference || compareStudentCodes(a, b);
+      }
+      if (mode === "last-active") {
+        const difference = (Number(b.lastActivity) || 0) - (Number(a.lastActivity) || 0);
+        return difference || compareStudentCodes(a, b);
+      }
+      return compareStudentCodes(a, b);
+    });
+    return sorted;
+  }
+
   function sortStats(stats, column, direction) {
     const dir = direction === "asc" ? 1 : -1;
     return stats.slice().sort((a, b) => {
@@ -312,5 +363,7 @@
     inactiveStudents,
     studentCurrentStreak,
     streakDistribution,
+    enrichStudentRoster,
+    sortStudentRoster,
   };
 });
