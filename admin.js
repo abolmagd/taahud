@@ -119,18 +119,16 @@ window.TaahudAdmin = (function () {
         : "لا يوجد نشاط";
 
       const actionCell = document.createElement("td");
-      actionCell.style.display = "flex";
-      actionCell.style.gap = "8px";
-      actionCell.style.flexWrap = "wrap";
+      actionCell.className = "table-actions roster-actions";
 
       const detailBtn = document.createElement("button");
-      detailBtn.className = "btn btn-secondary";
+      detailBtn.className = "btn btn-secondary btn-compact";
       detailBtn.textContent = "عرض الإحصائيات";
       detailBtn.addEventListener("click", () => showStudentDetail(student));
       actionCell.appendChild(detailBtn);
 
       const toggleBtn = document.createElement("button");
-      toggleBtn.className = "btn btn-secondary";
+      toggleBtn.className = "btn btn-secondary btn-compact";
       toggleBtn.textContent = student.active ? "إيقاف" : "تفعيل";
       toggleBtn.addEventListener("click", async () => {
         const action = student.active ? "إيقاف" : "تفعيل";
@@ -150,7 +148,7 @@ window.TaahudAdmin = (function () {
       actionCell.appendChild(toggleBtn);
 
       const resetPasswordBtn = document.createElement("button");
-      resetPasswordBtn.className = "btn btn-secondary";
+      resetPasswordBtn.className = "btn btn-secondary btn-compact";
       resetPasswordBtn.textContent = "إعادة كلمة المرور";
       resetPasswordBtn.addEventListener("click", async () => {
         const confirmed = window.confirm(
@@ -177,7 +175,7 @@ window.TaahudAdmin = (function () {
       actionCell.appendChild(resetPasswordBtn);
 
       const resetPointsBtn = document.createElement("button");
-      resetPointsBtn.className = "btn btn-danger";
+      resetPointsBtn.className = "btn btn-danger btn-compact";
       resetPointsBtn.textContent = "تصفير النقاط";
       resetPointsBtn.dataset.action = "reset-student-points";
       resetPointsBtn.addEventListener("click", async () => {
