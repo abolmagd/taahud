@@ -39,7 +39,7 @@
   }
 
   function friendlyError(error) {
-    const message = (error && error.message) || "";
+    const message = window.TaahudSessionSubmit.errorText(error);
     if (message.includes("invalid_login")) return "الكود أو كلمة المرور غير صحيحة";
     if (message.includes("weak_password")) return "كلمة المرور يجب أن تكون ٨ أحرف على الأقل";
     if (message.includes("invalid_student_session")) return "انتهت الجلسة، سجّل الدخول مرة أخرى";
@@ -51,6 +51,9 @@
     if (message.includes("invalid_session_date")) return "اختر تاريخًا خلال آخر ٣ أيام";
     if (message.includes("Could not find the function") || message.includes("schema cache")) {
       return "تحديث قاعدة البيانات غير مكتمل، شغّل كود SQL الأخير";
+    }
+    if (window.TaahudSessionSubmit.isTransientError(error)) {
+      return "تعذر الاتصال بالخادم، تحقق من الإنترنت ثم حاول مرة أخرى";
     }
     return "حدث خطأ، يرجى المحاولة مرة أخرى";
   }
@@ -455,7 +458,7 @@
         showToast("toast", "لا يمكن اختيار كودك كسامع للجلسة", "error");
         return;
       }
-      state.pendingRequestId = state.pendingRequestId || crypto.randomUUID();
+      state.pendingRequestId = state.pendingRequestId || window.TaahudSessionSubmit.createRequestId(window.crypto);
       setButtonLoading(submitBtn, true);
       try {
         const buildPayload = () => ({
@@ -472,17 +475,37 @@
           p_session_date: sessionTiming === "previous" ? sessionDate : null,
         });
 
-        let { data, error } = await state.client.rpc("record_student_session", buildPayload());
+        let { data, error } = await window.TaahudSessionSubmit.callWithTransientRetry(
+          () => state.client.rpc("record_student_session", buildPayload()),
+          1
+        );
         if (error) throw error;
-        let profile = await loadProfile();
+        let profile = null;
+        let profileError = null;
 
-        if (data && data.duplicate && !profileIncludesSession(profile, data.id)) {
+        try {
+          profile = await loadProfile();
+        } catch (error) {
+          profileError = error;
+          console.warn("[Ta'ahud] Session saved, but dashboard refresh failed", error);
+        }
+
+        if (data && data.duplicate && profile && !profileIncludesSession(profile, data.id)) {
           console.warn("[Ta'ahud] Duplicate request pointed to a hidden session; retrying with a fresh request id");
-          state.pendingRequestId = crypto.randomUUID();
-          const retry = await state.client.rpc("record_student_session", buildPayload());
+          state.pendingRequestId = window.TaahudSessionSubmit.createRequestId(window.crypto);
+          const retry = await window.TaahudSessionSubmit.callWithTransientRetry(
+            () => state.client.rpc("record_student_session", buildPayload()),
+            1
+          );
           if (retry.error) throw retry.error;
           data = retry.data;
-          profile = await loadProfile();
+          try {
+            profile = await loadProfile();
+            profileError = null;
+          } catch (error) {
+            profileError = error;
+            console.warn("[Ta'ahud] Retried session saved, but dashboard refresh failed", error);
+          }
         }
 
         state.pendingRequestId = null;
@@ -490,9 +513,11 @@
         document.getElementById("session-date-group").hidden = true;
         document.getElementById("session-date").required = false;
         syncListenerFields();
-        renderDashboard(profile);
+        if (profile) renderDashboard(profile);
         const details = "تاريخ " + formatShortDate(data.sessionDate) + " · " + data.pointsAwarded + " نقطة";
-        document.getElementById("session-receipt-details").textContent = details;
+        document.getElementById("session-receipt-details").textContent = profileError
+          ? details + " · تم الحفظ، وسيتم تحديث الإحصائيات عند إعادة فتح الصفحة"
+          : details;
         const receipt = document.getElementById("session-receipt");
         receipt.hidden = false;
         receipt.focus();
