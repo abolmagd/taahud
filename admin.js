@@ -94,6 +94,7 @@ window.TaahudAdmin = (function () {
   function renderRoster(students) {
     const body = document.getElementById("roster-body");
     body.innerHTML = "";
+    const labels = ["الكود", "الاسم", "الحالة", "النقاط", "آخر ظهور", "الإجراءات"];
     const activeCount = currentRoster.filter((student) => student.active).length;
     document.getElementById("roster-summary").textContent =
       currentRoster.length + " طالب، " + activeCount + " نشط";
@@ -227,6 +228,9 @@ window.TaahudAdmin = (function () {
       row.appendChild(pointsCell);
       row.appendChild(lastActivityCell);
       row.appendChild(actionCell);
+      [codeCell, nameCell, statusCell, pointsCell, lastActivityCell, actionCell].forEach((cell, index) => {
+        cell.dataset.label = labels[index];
+      });
       body.appendChild(row);
     });
     if (!students.length) {
@@ -677,11 +681,13 @@ window.TaahudAdmin = (function () {
   function renderStatsTable(rows) {
     const body = document.getElementById("stats-body");
     body.innerHTML = "";
+    const labels = ["الاسم", "الحالة", "جلسات التسميع", "صفحات مسمّعة", "جلسات الاستماع", "صفحات مستمع لها", "النقاط"];
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [row.name, row.active ? "نشط" : "موقوف", row.sessionsRecited, row.pagesRecited, row.sessionsListened, row.pagesListened, row.pointsEarned].forEach(
-        (value) => {
+        (value, index) => {
           const td = document.createElement("td");
+          td.dataset.label = labels[index];
           td.textContent = value;
           tr.appendChild(td);
         }
@@ -1110,6 +1116,7 @@ window.TaahudAdmin = (function () {
   function renderLogTable(rows) {
     const body = document.getElementById("log-body");
     body.innerHTML = "";
+    const labels = ["التاريخ", "الطالب", "السامع", "الصفحات", "من", "الطريقة", "نقاط الطالب", "نقاط السامع", "الرضا", "الملاحظات", "إجراءات"];
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [
@@ -1123,8 +1130,9 @@ window.TaahudAdmin = (function () {
         row.listenerPointsAwarded || 0,
         row.satisfaction || "",
         row.notes || "",
-      ].forEach((value) => {
+      ].forEach((value, index) => {
         const td = document.createElement("td");
+        td.dataset.label = labels[index];
         td.textContent = value;
         applyBrandTextIfNeeded(td, value);
         tr.appendChild(td);
@@ -1142,6 +1150,7 @@ window.TaahudAdmin = (function () {
       deleteButton.textContent = "حذف";
       deleteButton.addEventListener("click", () => deleteSession(row));
       actionCell.append(editButton, deleteButton);
+      actionCell.dataset.label = labels[10];
       tr.appendChild(actionCell);
       body.appendChild(tr);
     });
@@ -1279,6 +1288,7 @@ window.TaahudAdmin = (function () {
   function renderStudentDetailTable(rows) {
     const body = document.getElementById("student-detail-body");
     body.innerHTML = "";
+    const labels = ["التاريخ", "الدور", "الطرف الآخر", "الصفحات", "من", "الطريقة", "النقاط", "الرضا", "الملاحظات"];
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [
@@ -1291,8 +1301,9 @@ window.TaahudAdmin = (function () {
         row.points,
         row.satisfaction || "",
         row.notes || "",
-      ].forEach((value) => {
+      ].forEach((value, index) => {
         const td = document.createElement("td");
+        td.dataset.label = labels[index];
         td.textContent = value;
         applyBrandTextIfNeeded(td, value);
         tr.appendChild(td);

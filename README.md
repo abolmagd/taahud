@@ -23,6 +23,8 @@ project, its own Vercel deployment.
    changes recalculate all existing sessions.
    Run `supabase-reset-all-student-passwords.sql` once to immediately reset
    every student password to `123456789` and enable the matching admin action.
+   Run `supabase-fix-session-recording-visibility.sql` once if a submitted
+   student session shows success but does not appear in student/admin records.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.

@@ -224,6 +224,11 @@
     renderHistory();
   }
 
+  function profileIncludesSession(profile, sessionId) {
+    if (!sessionId) return true;
+    return (profile.sessions || []).some((session) => session.id === sessionId);
+  }
+
   async function authenticateStudent(code, password) {
     const { data, error } = await state.client.rpc("student_login", {
       auth_code: code,
@@ -453,7 +458,7 @@
       state.pendingRequestId = state.pendingRequestId || crypto.randomUUID();
       setButtonLoading(submitBtn, true);
       try {
-        const { data, error } = await state.client.rpc("record_student_session", {
+        const buildPayload = () => ({
           access_token: state.accessToken,
           p_client_request_id: state.pendingRequestId,
           p_listener_type: listenerSelection.listenerType,
@@ -466,14 +471,26 @@
           p_session_timing: sessionTiming,
           p_session_date: sessionTiming === "previous" ? sessionDate : null,
         });
+
+        let { data, error } = await state.client.rpc("record_student_session", buildPayload());
         if (error) throw error;
+        let profile = await loadProfile();
+
+        if (data && data.duplicate && !profileIncludesSession(profile, data.id)) {
+          console.warn("[Ta'ahud] Duplicate request pointed to a hidden session; retrying with a fresh request id");
+          state.pendingRequestId = crypto.randomUUID();
+          const retry = await state.client.rpc("record_student_session", buildPayload());
+          if (retry.error) throw retry.error;
+          data = retry.data;
+          profile = await loadProfile();
+        }
 
         state.pendingRequestId = null;
         form.reset();
         document.getElementById("session-date-group").hidden = true;
         document.getElementById("session-date").required = false;
         syncListenerFields();
-        renderDashboard(await loadProfile());
+        renderDashboard(profile);
         const details = "تاريخ " + formatShortDate(data.sessionDate) + " · " + data.pointsAwarded + " نقطة";
         document.getElementById("session-receipt-details").textContent = details;
         const receipt = document.getElementById("session-receipt");

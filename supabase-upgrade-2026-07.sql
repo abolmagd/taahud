@@ -15,9 +15,10 @@ alter table public.sessions
 
 alter table public.students alter column password_hash drop default;
 
-create unique index if not exists sessions_client_request_id_idx
+drop index if exists sessions_client_request_id_idx;
+create unique index sessions_client_request_id_idx
   on public.sessions (client_request_id)
-  where client_request_id is not null;
+  where client_request_id is not null and deleted_at is null;
 
 create index if not exists sessions_active_date_idx
   on public.sessions (session_date desc)
@@ -342,7 +343,10 @@ begin
   if p_client_request_id is null then raise exception 'missing_request_id' using errcode = 'P0001'; end if;
 
   select * into existing from public.sessions
-  where client_request_id = p_client_request_id and student_id = sid limit 1;
+  where client_request_id = p_client_request_id
+    and student_id = sid
+    and deleted_at is null
+  limit 1;
   if existing.id is not null then
     return jsonb_build_object('id', existing.id, 'pointsAwarded', existing.points_awarded,
       'listenerPointsAwarded', existing.listener_points_awarded, 'sessionDate', existing.session_date, 'duplicate', true);
@@ -407,7 +411,10 @@ begin
     'listenerPointsAwarded', listener_points, 'sessionDate', effective_day, 'duplicate', false);
 exception when unique_violation then
   select * into existing from public.sessions
-  where client_request_id = p_client_request_id and student_id = sid limit 1;
+  where client_request_id = p_client_request_id
+    and student_id = sid
+    and deleted_at is null
+  limit 1;
   if existing.id is null then
     raise exception 'duplicate_request_id' using errcode = 'P0001';
   end if;

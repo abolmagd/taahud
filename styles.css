@@ -15,7 +15,7 @@
   --surface-strong: #e9e2d0;
   --text: #1c1917;
   --muted: #6b655a;
-  --line: #81796b;
+  --line: #b8ad9c;
   --brand: #1c1917;
   --accent: #a16207;
   --accent-strong: #7c4d05;
@@ -51,6 +51,7 @@ body {
   direction: rtl;
   text-align: right;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -130,7 +131,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: 0 14px 34px rgba(28, 25, 23, 0.08);
   padding: 24px;
   margin-bottom: 20px;
 }
@@ -337,6 +338,7 @@ body {
   font-family: inherit;
   font-size: 1rem;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -791,25 +793,34 @@ body {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+  background: var(--surface);
+  direction: ltr;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
   min-width: 680px;
+  direction: rtl;
 }
 
 .table th,
 .table td {
-  padding: 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--line);
   text-align: right;
+  vertical-align: top;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
 }
 
 .table th {
   color: var(--brand);
   font-family: var(--font-heading);
   user-select: none;
+  background: #fbfaf6;
+  white-space: nowrap;
 }
 
 .table th:hover {
@@ -818,6 +829,10 @@ body {
 
 .table tbody tr:hover {
   background: var(--surface-soft);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .empty-cell {
@@ -837,7 +852,44 @@ body {
 
 .sort-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.table-actions { display: flex; gap: 6px; min-width: 150px; }
+.table-actions { display: flex; gap: 6px; min-width: 120px; }
+
+#log-table {
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+#log-table th,
+#log-table td {
+  padding: 10px 8px;
+  font-size: 0.92rem;
+}
+
+#log-table th:nth-child(1),
+#log-table td:nth-child(1) { width: 88px; }
+#log-table th:nth-child(2),
+#log-table td:nth-child(2) { width: 120px; }
+#log-table th:nth-child(3),
+#log-table td:nth-child(3) { width: 132px; }
+#log-table th:nth-child(4),
+#log-table td:nth-child(4),
+#log-table th:nth-child(7),
+#log-table td:nth-child(7),
+#log-table th:nth-child(8),
+#log-table td:nth-child(8) {
+  width: 60px;
+  text-align: center;
+}
+#log-table th:nth-child(5),
+#log-table td:nth-child(5) { width: 105px; }
+#log-table th:nth-child(6),
+#log-table td:nth-child(6) { width: 78px; }
+#log-table th:nth-child(9),
+#log-table td:nth-child(9) { width: 105px; }
+#log-table th:nth-child(10),
+#log-table td:nth-child(10) { width: 125px; }
+#log-table th:nth-child(11),
+#log-table td:nth-child(11) { width: 132px; }
 
 .roster-tools {
   display: flex;
@@ -860,7 +912,17 @@ body {
   align-items: end;
 }
 
-.log-filters .form-group { flex: 1 1 170px; margin: 0; }
+.log-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  align-items: end;
+}
+
+.log-filters .form-group:first-child {
+  grid-column: span 2;
+}
+
+.log-filters .form-group { min-width: 0; margin: 0; }
 
 .pagination {
   display: flex;
@@ -1213,6 +1275,103 @@ hr.divider {
   .dashboard-full {
     grid-column: 1 / -1;
   }
+
+  .admin-page {
+    max-width: 100%;
+  }
+
+  .log-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .log-filters .form-group:first-child { grid-column: span 1; }
+}
+
+@media (max-width: 1100px) {
+  .admin-page #roster-table,
+  .admin-page #stats-table,
+  .admin-page #student-detail-table,
+  .admin-page #log-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .admin-page #roster-table thead,
+  .admin-page #stats-table thead,
+  .admin-page #student-detail-table thead,
+  .admin-page #log-table thead {
+    display: none;
+  }
+
+  .admin-page #roster-table tbody,
+  .admin-page #stats-table tbody,
+  .admin-page #student-detail-table tbody,
+  .admin-page #log-table tbody {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .admin-page #roster-table tr,
+  .admin-page #stats-table tr,
+  .admin-page #student-detail-table tr,
+  .admin-page #log-table tr {
+    display: grid;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .admin-page #roster-table td,
+  .admin-page #stats-table td,
+  .admin-page #student-detail-table td,
+  .admin-page #log-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    width: auto !important;
+    min-width: 0;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+
+  .admin-page #roster-table td::before,
+  .admin-page #stats-table td::before,
+  .admin-page #student-detail-table td::before,
+  .admin-page #log-table td::before {
+    content: attr(data-label);
+    flex: 0 0 120px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .admin-page #roster-table .empty-cell,
+  .admin-page #stats-table .empty-cell,
+  .admin-page #student-detail-table .empty-cell,
+  .admin-page #log-table .empty-cell {
+    display: block;
+    text-align: center !important;
+  }
+
+  .admin-page #roster-table .empty-cell::before,
+  .admin-page #stats-table .empty-cell::before,
+  .admin-page #student-detail-table .empty-cell::before,
+  .admin-page #log-table .empty-cell::before {
+    content: none;
+  }
+
+  .admin-page .table-actions {
+    position: static;
+    justify-content: flex-start;
+    min-width: 0;
+    background: transparent;
+  }
+
+  .admin-page .table-wrap {
+    overflow: visible;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1245,13 +1404,12 @@ hr.divider {
   .admin-header .brand-word { font-size: 1.45rem; }
 
   .admin-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
   }
 
-  .admin-tabs .tab { flex: 0 0 auto; min-height: 48px; }
+  .admin-tabs .tab { min-height: 48px; padding-inline: 8px; }
 
   .dialog-form { grid-template-columns: 1fr; }
   .dialog-form .form-group-wide { grid-column: 1; }
@@ -1263,9 +1421,7 @@ hr.divider {
   .roster-tools .btn { width: 100%; }
   .roster-filter-grid { grid-template-columns: 1fr; gap: 0; }
 
-  .log-filters { display: grid; grid-template-columns: 1fr 1fr; }
-
-  .table-actions { position: sticky; left: 0; background: var(--surface); }
+  .log-filters { grid-template-columns: 1fr 1fr; }
   .metric-definitions dl { grid-template-columns: 1fr; gap: 4px; }
   .metric-definitions dd { margin-bottom: 10px; }
 
@@ -1464,4 +1620,21 @@ hr.divider {
 @media (max-width: 420px) {
   .log-filters { grid-template-columns: 1fr; }
   .student-nav-tab { font-size: 0.78rem; }
+
+  .admin-page #roster-table td,
+  .admin-page #stats-table td,
+  .admin-page #student-detail-table td,
+  .admin-page #log-table td,
+  .student-history-table td {
+    flex-direction: column;
+    gap: 4px;
+    text-align: right;
+  }
+
+  .admin-page #roster-table td::before,
+  .admin-page #stats-table td::before,
+  .admin-page #student-detail-table td::before,
+  .admin-page #log-table td::before {
+    flex-basis: auto;
+  }
 }
