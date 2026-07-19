@@ -18,6 +18,12 @@
       .join(" ");
   }
 
+  function diagnosticLabel(error) {
+    const code = error && error.code ? String(error.code) : "NO_CODE";
+    const message = error && error.message ? String(error.message) : "unknown_error";
+    return code + ": " + message;
+  }
+
   function isTransientError(error) {
     const message = errorText(error).toLowerCase();
     const httpStatus = Number(error && (error.status || error.statusCode));
@@ -67,5 +73,5 @@
     );
   }
 
-  return { errorText, isTransientError, callWithTransientRetry, createRequestId };
+  return { errorText, diagnosticLabel, isTransientError, callWithTransientRetry, createRequestId };
 });

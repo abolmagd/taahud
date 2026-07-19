@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   errorText,
+  diagnosticLabel,
   isTransientError,
   callWithTransientRetry,
   createRequestId,
@@ -14,6 +15,11 @@ test("errorText includes Supabase details, hint, and code", () => {
     errorText({ message: "request failed", details: "network error", hint: "retry", code: "PGRST000" }),
     "request failed network error retry PGRST000"
   );
+});
+
+test("diagnosticLabel exposes the server code needed to diagnose an unknown save failure", () => {
+  assert.equal(diagnosticLabel({ code: "42501", message: "permission denied" }), "42501: permission denied");
+  assert.equal(diagnosticLabel(null), "NO_CODE: unknown_error");
 });
 
 test("isTransientError recognizes network and server failures but not validation errors", () => {

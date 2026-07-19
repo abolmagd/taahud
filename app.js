@@ -55,7 +55,7 @@
     if (window.TaahudSessionSubmit.isTransientError(error)) {
       return "تعذر الاتصال بالخادم، تحقق من الإنترنت ثم حاول مرة أخرى";
     }
-    return "حدث خطأ، يرجى المحاولة مرة أخرى";
+    return "تعذر تسجيل الجلسة — " + window.TaahudSessionSubmit.diagnosticLabel(error);
   }
 
   function showView(name) {
