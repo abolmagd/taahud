@@ -13,6 +13,46 @@
   };
   const STUDENT_TOKEN_KEY = "taahud_student_access_token";
 
+  function storageGet(storage, key) {
+    try {
+      return storage && storage.getItem(key);
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function storageSet(storage, key, value) {
+    try {
+      if (storage) storage.setItem(key, value);
+    } catch (error) {
+      console.warn("[Ta'ahud] Student session storage is unavailable", error);
+    }
+  }
+
+  function storageRemove(storage, key) {
+    try {
+      if (storage) storage.removeItem(key);
+    } catch (error) {
+      console.warn("[Ta'ahud] Could not clear stored student session", error);
+    }
+  }
+
+  function readStoredStudentToken() {
+    return storageGet(window.localStorage, STUDENT_TOKEN_KEY) ||
+      storageGet(window.sessionStorage, STUDENT_TOKEN_KEY) ||
+      "";
+  }
+
+  function storeStudentToken(accessToken) {
+    storageSet(window.localStorage, STUDENT_TOKEN_KEY, accessToken);
+    storageSet(window.sessionStorage, STUDENT_TOKEN_KEY, accessToken);
+  }
+
+  function clearStoredStudentToken() {
+    storageRemove(window.localStorage, STUDENT_TOKEN_KEY);
+    storageRemove(window.sessionStorage, STUDENT_TOKEN_KEY);
+  }
+
   function getClient() {
     if (!window._supabase) {
       console.error("[Ta'ahud] Supabase client not initialized — check supabase-config.js");
@@ -254,6 +294,10 @@
   }
 
   async function enterDashboardWithProfile(profile) {
+    if (profile && profile.mustChangePassword) {
+      showView("password");
+      return;
+    }
     state.students = await loadStudents();
     populateListenerSelect();
     renderDashboard(profile);
@@ -329,7 +373,7 @@
         }
         state.accessToken = student.accessToken;
         state.student = student.student;
-        sessionStorage.setItem(STUDENT_TOKEN_KEY, state.accessToken);
+        storeStudentToken(state.accessToken);
         document.getElementById("login-password").value = "";
         document.getElementById("login-code").value = code;
         if (student.mustChangePassword) {
@@ -539,7 +583,7 @@
         await state.client.rpc("student_logout", { access_token: state.accessToken });
       }
       state.accessToken = "";
-      sessionStorage.removeItem(STUDENT_TOKEN_KEY);
+      clearStoredStudentToken();
       state.student = null;
       state.sessions = [];
       state.statsPeriod = "day";
@@ -625,14 +669,15 @@
     wireReceipt();
     wireInlineValidation();
 
-    state.accessToken = sessionStorage.getItem(STUDENT_TOKEN_KEY) || "";
+    state.accessToken = readStoredStudentToken();
     if (state.accessToken) {
       try {
+        storeStudentToken(state.accessToken);
         await enterDashboard();
         return;
       } catch (error) {
         console.warn("[Ta'ahud] Stored student session expired", error);
-        sessionStorage.removeItem(STUDENT_TOKEN_KEY);
+        clearStoredStudentToken();
         state.accessToken = "";
       }
     }

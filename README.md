@@ -25,6 +25,8 @@ project, its own Vercel deployment.
    every student password to `123456789` and enable the matching admin action.
    Run `supabase-fix-session-recording-visibility.sql` once if a submitted
    student session shows success but does not appear in student/admin records.
+   Run `supabase-extend-student-session-cache.sql` once to keep student logins
+   saved in the browser for 30 days.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
@@ -70,7 +72,7 @@ Deploy the project root to Vercel as a static site (no build command needed).
 ## End-to-end QA checklist (run once after setup, and after any deploy)
 
 - [ ] Student login accepts `123456789`, forces an 8-character
-      replacement, and restores the short-lived session after a refresh.
+      replacement, and restores the saved browser session after a refresh.
 - [ ] Student check-in loads active listener codes without exposing names or
       password status to anonymous visitors.
 - [ ] Submitting a session with a real student listener creates a `sessions`

@@ -171,11 +171,11 @@ begin
 
   raw_token := encode(extensions.gen_random_bytes(32), 'hex');
   insert into public.student_auth_sessions (token_hash, student_id, expires_at)
-  values (encode(extensions.digest(raw_token, 'sha256'), 'hex'), matched.id, now() + interval '12 hours');
+  values (encode(extensions.digest(raw_token, 'sha256'), 'hex'), matched.id, now() + interval '30 days');
 
   return jsonb_build_object(
     'accessToken', raw_token,
-    'expiresAt', now() + interval '12 hours',
+    'expiresAt', now() + interval '30 days',
     'student', jsonb_build_object('id', matched.id, 'code', matched.code, 'name', matched.name),
     'mustChangePassword', matched.password_changed_at is null
   );

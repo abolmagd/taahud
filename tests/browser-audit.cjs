@@ -126,6 +126,16 @@ async function installMock(page, admin) {
         await page.click("#student-login-btn");
         await page.waitForSelector("#student-dashboard:not([hidden])");
         const arabicCodeNormalized = await page.inputValue("#login-code") === "1";
+        await page.reload();
+        await page.waitForSelector("#student-dashboard:not([hidden])");
+        await page.evaluate(() => {
+          window.__studentAutoLoginAudit = Boolean(
+            localStorage.getItem("taahud_student_access_token") &&
+            window.__rpcCalls &&
+            window.__rpcCalls.some((call) => call.name === "get_student_profile") &&
+            !window.__rpcCalls.some((call) => call.name === "student_login")
+          );
+        });
         await page.check('input[name="listener-type"][value="student"]');
         const studentShowsCode = await page.locator("#listener-student-code-group").isVisible();
         await page.check('input[name="listener-type"][value="outside"]');
@@ -208,6 +218,7 @@ async function installMock(page, admin) {
           Array.from(document.querySelectorAll("#roster-body tr td:nth-child(4)"))
             .map((cell) => Number(cell.textContent)).every((value, index, values) => !index || values[index - 1] >= value),
         listenerTypesWork: window.__listenerTypeAudit !== false,
+        studentAutoLoginWorks: window.__studentAutoLoginAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
         atRiskDialogWork: window.__atRiskDialogAudit !== false,
@@ -222,6 +233,7 @@ async function installMock(page, admin) {
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
     || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
+    || !result.metrics.studentAutoLoginWorks
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
     || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;
 })().catch((error) => {
