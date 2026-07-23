@@ -34,7 +34,7 @@
       }
       const query = String(f.search || "").trim().toLocaleLowerCase("ar");
       if (query) {
-        const haystack = [s.studentLabel, s.listenerLabel, s.notes, s.surahRange, s.method]
+        const haystack = [s.studentLabel, s.listenerLabel, s.notes, s.surahRange, s.matnName, s.method, s.satisfaction]
           .filter(Boolean).join(" ").toLocaleLowerCase("ar");
         if (!haystack.includes(query)) return false;
       }

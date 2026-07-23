@@ -752,7 +752,7 @@ window.TaahudAdmin = (function () {
     try {
       const data = await fetchAllSessionRows(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
-          "points_awarded, listener_points_awarded, session_date, session_timing, surah_range, satisfaction, notes, " +
+          "points_awarded, listener_points_awarded, session_date, session_timing, surah_range, session_kind, matn_name, satisfaction, notes, " +
           "student:students!student_id(code, name), listener:students!listener_student_id(code, name)",
         true
       );
@@ -766,6 +766,8 @@ window.TaahudAdmin = (function () {
         sessionDate: row.session_date,
         sessionTiming: row.session_timing,
         pages: row.pages,
+        sessionKind: row.session_kind || "recitation",
+        matnName: row.matn_name,
         pointsAwarded: row.points_awarded,
         listenerPointsAwarded: row.listener_points_awarded,
         surahRange: row.surah_range,
@@ -784,6 +786,10 @@ window.TaahudAdmin = (function () {
 
   function setText(id, value) {
     document.getElementById(id).textContent = value;
+  }
+
+  function sessionContentLabel(session) {
+    return session.sessionKind === "mutun" ? session.matnName || "" : session.surahRange || "";
   }
 
   function formatNumber(value) {
@@ -870,7 +876,7 @@ window.TaahudAdmin = (function () {
       title.textContent = session.studentLabel;
       const meta = document.createElement("span");
       meta.className = "compact-meta";
-      meta.textContent = session.pages + " صفحة · " + session.method + " · " + shortDate(sessionDisplayDate(session));
+      meta.textContent = session.pages + " · " + (sessionContentLabel(session) || session.method) + " · " + shortDate(sessionDisplayDate(session));
       item.append(title, meta);
       container.appendChild(item);
     });
@@ -1101,7 +1107,7 @@ window.TaahudAdmin = (function () {
     renderBarList("overview-streaks", window.TaahudStats.streakDistribution(activeStudents, sessions, now), "sessions");
 
     const validMethods = new Set(["تليجرام", "واتس", "مكالمة هاتفية", "جوجل ميت", "مقابلة", "استماع", "أخرى"]);
-    const validSatisfaction = new Set(["نعم تماما", "يحتاج إلى مزيد من الضبط", "وردي كان ورد استماع"]);
+    const validSatisfaction = new Set(["نعم تماما", "يحتاج إلى مزيد من الضبط", "وردي كان ورد استماع", "متقن", "متوسط", "يحتاج إلى إعادة"]);
     const qualityIssues = sessions.reduce((count, session) => count + (
       Number(session.pages) <= 0 || Number(session.pages) > 100 ||
       !validMethods.has(session.method) || !validSatisfaction.has(session.satisfaction) ||
@@ -1114,7 +1120,7 @@ window.TaahudAdmin = (function () {
   function renderLogTable(rows) {
     const body = document.getElementById("log-body");
     body.innerHTML = "";
-    const labels = ["التاريخ", "الطالب", "السامع", "الصفحات", "من", "الطريقة", "نقاط الطالب", "نقاط السامع", "الرضا", "الملاحظات", "إجراءات"];
+    const labels = ["التاريخ", "الطالب", "السامع", "الأبيات/الصفحات", "المحفوظ", "الطريقة", "نقاط الطالب", "نقاط السامع", "الرضا / الإتقان", "الملاحظات", "إجراءات"];
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [
@@ -1122,7 +1128,7 @@ window.TaahudAdmin = (function () {
         row.studentLabel,
         row.listenerLabel,
         row.pages,
-        row.surahRange || "",
+        sessionContentLabel(row),
         row.method,
         row.pointsAwarded || 0,
         row.listenerPointsAwarded || 0,
@@ -1209,8 +1215,8 @@ window.TaahudAdmin = (function () {
     document.getElementById("log-next-btn").addEventListener("click", () => { state.logPage += 1; applyLogFilters(); });
     document.getElementById("export-log-btn").addEventListener("click", () => {
       downloadCsv("taahud-sessions.csv",
-        ["date","student","listener","pages","range","method","reciter_points","listener_points","satisfaction","notes"],
-        state.filteredLogSessions.map((row) => [row.sessionDate,row.studentLabel,row.listenerLabel,row.pages,row.surahRange,row.method,row.pointsAwarded,row.listenerPointsAwarded,row.satisfaction,row.notes]));
+        ["date","student","listener","session_kind","pages_or_verses","content","method","reciter_points","listener_points","satisfaction_or_mastery","notes"],
+        state.filteredLogSessions.map((row) => [row.sessionDate,row.studentLabel,row.listenerLabel,row.sessionKind,row.pages,sessionContentLabel(row),row.method,row.pointsAwarded,row.listenerPointsAwarded,row.satisfaction,row.notes]));
     });
     document.getElementById("cancel-edit-btn").addEventListener("click", () => document.getElementById("session-edit-dialog").close());
     document.getElementById("session-edit-form").addEventListener("submit", saveSessionEdit);
@@ -1274,6 +1280,8 @@ window.TaahudAdmin = (function () {
           role: isReciter ? "مُسمِّع" : "سامع",
           counterpart: isReciter ? s.listenerLabel : s.studentLabel,
           pages: s.pages,
+          sessionKind: s.sessionKind,
+          matnName: s.matnName,
           surahRange: s.surahRange,
           method: s.method,
           points: isReciter ? s.pointsAwarded || 0 : s.listenerPointsAwarded || 0,
@@ -1286,7 +1294,7 @@ window.TaahudAdmin = (function () {
   function renderStudentDetailTable(rows) {
     const body = document.getElementById("student-detail-body");
     body.innerHTML = "";
-    const labels = ["التاريخ", "الدور", "الطرف الآخر", "الصفحات", "من", "الطريقة", "النقاط", "الرضا", "الملاحظات"];
+    const labels = ["التاريخ", "الدور", "الطرف الآخر", "الأبيات/الصفحات", "المحفوظ", "الطريقة", "النقاط", "الرضا / الإتقان", "الملاحظات"];
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       [
@@ -1294,7 +1302,7 @@ window.TaahudAdmin = (function () {
         row.role,
         row.counterpart,
         row.pages,
-        row.surahRange || "",
+        sessionContentLabel(row),
         row.method,
         row.points,
         row.satisfaction || "",

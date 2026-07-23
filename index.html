@@ -79,7 +79,21 @@
           <fieldset class="form-section">
             <legend>بيانات الجلسة</legend>
             <div class="form-group form-group-wide">
-              <span class="field-label" id="listener-type-label">نوع الجلسة</span>
+              <span class="field-label" id="session-record-type-label">نوع التسجيل</span>
+              <div class="listener-type-grid session-record-type-grid" role="radiogroup" aria-labelledby="session-record-type-label">
+                <label class="listener-type-card">
+                  <input type="radio" name="session-record-type" value="recitation" required />
+                  <span>تسجيل تسميع</span>
+                </label>
+                <label class="listener-type-card">
+                  <input type="radio" name="session-record-type" value="mutun" required />
+                  <span>تسجيل المتون</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group form-group-wide">
+              <span class="field-label" id="listener-type-label">السامع / نوع الجلسة</span>
               <div class="listener-type-grid" role="radiogroup" aria-labelledby="listener-type-label">
                 <label class="listener-type-card">
                   <input type="radio" name="listener-type" value="student" required />
@@ -89,7 +103,7 @@
                   <input type="radio" name="listener-type" value="outside" required />
                   <span>شخص آخر خارج <span class="brand-text">تعاهُد</span></span>
                 </label>
-                <label class="listener-type-card">
+                <label class="listener-type-card" id="listening-only-card">
                   <input type="radio" name="listener-type" value="listening_only" required />
                   <span>وِرد استماع</span>
                 </label>
@@ -120,14 +134,20 @@
             </div>
 
             <div class="form-group">
-              <label for="pages">عدد الصفحات</label>
+              <label for="pages" id="pages-label">عدد الصفحات</label>
               <input type="number" id="pages" min="0.5" max="100" step="0.5" required aria-describedby="pages-error" />
               <span class="field-error" id="pages-error" hidden></span>
             </div>
 
-            <div class="form-group form-group-wide">
+            <div class="form-group form-group-wide" id="surah-range-group">
               <label for="surah-range">من (اختياري)</label>
               <input type="text" id="surah-range" placeholder="مثال: النساء ٣٣ - ٥٩" />
+            </div>
+
+            <div class="form-group form-group-wide" id="matn-name-group" hidden>
+              <label for="matn-name">اسم المتن</label>
+              <input type="text" id="matn-name" placeholder="مثال: تحفة الأطفال" aria-describedby="matn-name-error" />
+              <span class="field-error" id="matn-name-error" hidden></span>
             </div>
           </fieldset>
 
@@ -148,7 +168,7 @@
             </div>
 
             <div class="form-group" id="satisfaction-group">
-              <label for="satisfaction">هل أنت راض عن جودة محفوظك الذي سمعته؟</label>
+              <label for="satisfaction" id="satisfaction-label">هل أنت راض عن جودة محفوظك الذي سمعته؟</label>
               <select id="satisfaction" required>
                 <option value="">اختر...</option>
                 <option value="نعم تماما">نعم تماما</option>
@@ -242,8 +262,8 @@
                 <th>التاريخ</th>
                 <th>الدور</th>
                 <th>الطرف الآخر</th>
-                <th>الصفحات</th>
-                <th>الطريقة</th>
+                <th>الأبيات/الصفحات</th>
+                <th>التفاصيل</th>
                 <th>النقاط</th>
               </tr>
             </thead>
