@@ -85,7 +85,8 @@
     if (message.includes("invalid_student_session")) return "انتهت الجلسة، سجّل الدخول مرة أخرى";
     if (message.includes("self_listener_not_allowed")) return "لا يمكن اختيار كودك كسامع للجلسة";
     if (message.includes("invalid_pages")) return "عدد الصفحات يجب أن يكون من نصف صفحة إلى ١٠٠ صفحة";
-    if (message.includes("invalid_session_kind") || message.includes("missing_matn_name")) return "راجع نوع التسجيل واسم المتن";
+    if (message.includes("invalid_session_kind") || message.includes("missing_book_name")) return "راجع نوع التسجيل واسم الكتاب";
+    if (message.includes("missing_required_fields")) return "يرجى تعبئة جميع الحقول المطلوبة";
     if (message.includes("invalid_method") || message.includes("invalid_satisfaction")) return "راجع تفاصيل الجلسة المختارة";
     if (message.includes("password_change_required")) return "يجب تغيير كلمة المرور أولًا";
     if (message.includes("invalid_listener")) return "كود السامع غير صحيح";
@@ -225,7 +226,12 @@
 
   function sessionDetailLabel(session) {
     if (session.sessionKind === "mutun") {
-      return [session.matnName ? "متن " + session.matnName : "متون", session.satisfaction]
+      return ["تسميع متن", session.satisfaction]
+        .filter(Boolean)
+        .join(" · ");
+    }
+    if (session.sessionKind === "reading") {
+      return [session.matnName ? "كتاب " + session.matnName : "قراءة", session.notes]
         .filter(Boolean)
         .join(" · ");
     }
@@ -477,25 +483,69 @@
   }
 
   function syncSessionRecordFields() {
-    const isMutun = readSessionRecordType() === "mutun";
+    const sessionRecordType = readSessionRecordType();
+    const isMutun = sessionRecordType === "mutun";
+    const isReading = sessionRecordType === "reading";
+    const isQuranRecitation = sessionRecordType === "recitation";
+    const condensedRecord = isMutun || isReading;
+    const listenerTypeGroup = document.getElementById("listener-type-group");
     const matnGroup = document.getElementById("matn-name-group");
     const matnName = document.getElementById("matn-name");
+    const matnNameLabel = document.getElementById("matn-name-label");
     const surahRangeGroup = document.getElementById("surah-range-group");
     const surahRange = document.getElementById("surah-range");
+    const sessionTimingGroup = document.getElementById("session-timing-group");
+    const sessionDateGroup = document.getElementById("session-date-group");
+    const sessionDate = document.getElementById("session-date");
+    const methodGroup = document.getElementById("method-group");
+    const method = document.getElementById("method");
+    const notes = document.getElementById("notes");
     const listeningOnlyCard = document.getElementById("listening-only-card");
     const listeningOnlyInput = document.querySelector('input[name="listener-type"][value="listening_only"]');
     const satisfaction = document.getElementById("satisfaction");
 
-    matnGroup.hidden = !isMutun;
-    matnName.required = isMutun;
-    if (!isMutun) matnName.value = "";
+    listenerTypeGroup.hidden = condensedRecord;
+    sessionTimingGroup.hidden = condensedRecord;
+    sessionDateGroup.hidden = true;
+    sessionDate.required = false;
+    if (condensedRecord) {
+      document.querySelectorAll('input[name="listener-type"]').forEach((radio) => {
+        radio.required = false;
+        radio.checked = false;
+      });
+      document.getElementById("session-timing").value = "today";
+      sessionDate.value = "";
+    } else {
+      document.querySelectorAll('input[name="listener-type"]').forEach((radio) => {
+        radio.required = true;
+      });
+    }
 
-    surahRangeGroup.hidden = isMutun;
-    if (isMutun) surahRange.value = "";
+    matnGroup.hidden = !isReading;
+    matnName.required = isReading;
+    matnNameLabel.textContent = "اسم الكتاب";
+    matnName.placeholder = "مثال: حلية طالب العلم";
+    if (!isReading) matnName.value = "";
 
-    document.getElementById("pages-label").textContent = isMutun ? "عدد الأبيات / الصفحات" : "عدد الصفحات";
-    document.getElementById("satisfaction-label").textContent = isMutun ? "مدى الإتقان" : "هل أنت راض عن جودة محفوظك الذي سمعته؟";
+    surahRangeGroup.hidden = !isQuranRecitation;
+    if (!isQuranRecitation) surahRange.value = "";
+
+    methodGroup.hidden = condensedRecord;
+    method.required = isQuranRecitation;
+    if (condensedRecord) method.value = "";
+
+    document.getElementById("pages-label").textContent = isMutun ? "عدد الأبيات" : "عدد الصفحات";
+    document.getElementById("session-details-legend").textContent = condensedRecord ? "التفاصيل" : "تفاصيل التسميع";
+    document.getElementById("satisfaction-label").textContent = isMutun ? "الإتقان" : "هل أنت راض عن جودة محفوظك الذي سمعته؟";
     setSelectOptions(satisfaction, isMutun ? mutunMasteryOptions : recitationSatisfactionOptions);
+    document.getElementById("satisfaction-group").hidden = isReading;
+    satisfaction.required = isMutun || isQuranRecitation;
+    if (isReading) satisfaction.value = "";
+
+    document.getElementById("notes-label").textContent = isReading
+      ? "اقتباس أو ملاحظة"
+      : isMutun ? "الملاحظات" : "ملاحظات واقتراحات (اختياري)";
+    notes.required = condensedRecord;
 
     listeningOnlyCard.hidden = isMutun;
     if (isMutun && listeningOnlyInput && listeningOnlyInput.checked) {
@@ -508,21 +558,24 @@
     const selection = readListenerSelection();
     const studentListener = selection.listenerType === "student";
     const listeningOnly = selection.listenerType === "listening_only";
-    const isMutun = readSessionRecordType() === "mutun";
+    const sessionRecordType = readSessionRecordType();
+    const isQuranRecitation = sessionRecordType === "recitation";
+    const isMutun = sessionRecordType === "mutun";
+    const isReading = sessionRecordType === "reading";
     const listenerCode = document.getElementById("listener-code");
     const method = document.getElementById("method");
     const satisfaction = document.getElementById("satisfaction");
-    document.getElementById("listener-student-code-group").hidden = !studentListener;
-    listenerCode.required = studentListener;
+    document.getElementById("listener-student-code-group").hidden = !studentListener || !isQuranRecitation;
+    listenerCode.required = studentListener && isQuranRecitation;
     if (!studentListener) listenerCode.value = "";
-    document.getElementById("method-group").hidden = false;
-    document.getElementById("satisfaction-group").hidden = listeningOnly && !isMutun;
+    document.getElementById("method-group").hidden = !isQuranRecitation;
+    document.getElementById("satisfaction-group").hidden = isReading || (isQuranRecitation && listeningOnly);
     document.getElementById("method-label").textContent = listeningOnly ? "طريقة الاستماع؟" : "طريقة التسميع؟";
-    method.required = true;
-    satisfaction.required = !listeningOnly || isMutun;
-    if (listeningOnly && !isMutun) {
+    method.required = isQuranRecitation;
+    satisfaction.required = isMutun || (isQuranRecitation && !listeningOnly);
+    if (listeningOnly && isQuranRecitation) {
       satisfaction.value = "وردي كان ورد استماع";
-    } else if (!isMutun && satisfaction.value === "وردي كان ورد استماع") {
+    } else if (isQuranRecitation && satisfaction.value === "وردي كان ورد استماع") {
       satisfaction.value = "";
     }
   }
@@ -558,27 +611,32 @@
       const methodValue = document.getElementById("method").value;
       const satisfactionValue = document.getElementById("satisfaction").value;
       const matnNameValue = document.getElementById("matn-name").value.trim();
+      const notesValue = document.getElementById("notes").value.trim();
       const sessionTiming = document.getElementById("session-timing").value;
       const sessionDate = document.getElementById("session-date").value;
+      const isQuranRecitation = sessionRecordType === "recitation";
+      const isMutun = sessionRecordType === "mutun";
+      const isReading = sessionRecordType === "reading";
 
       if (
         !sessionRecordType ||
-        !listenerSelection.listenerType ||
-        (listenerSelection.listenerType === "student" && !listenerSelection.listenerCode) ||
+        (isQuranRecitation && !listenerSelection.listenerType) ||
+        (isQuranRecitation && listenerSelection.listenerType === "student" && !listenerSelection.listenerCode) ||
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
         pagesValue <= 0 ||
         pagesValue > 100 ||
-        (sessionRecordType === "mutun" && !matnNameValue) ||
-        !methodValue ||
-        !satisfactionValue ||
-        (sessionTiming === "previous" && !sessionDate)
+        (isReading && !matnNameValue) ||
+        (isQuranRecitation && !methodValue) ||
+        ((isQuranRecitation || isMutun) && !satisfactionValue) ||
+        ((isMutun || isReading) && !notesValue) ||
+        (isQuranRecitation && sessionTiming === "previous" && !sessionDate)
       ) {
         showToast("toast", "يرجى تعبئة جميع الحقول المطلوبة", "error");
         return;
       }
 
-      if (listenerSelection.listenerType === "student" && listenerSelection.listenerCode === state.student.code) {
+      if (isQuranRecitation && listenerSelection.listenerType === "student" && listenerSelection.listenerCode === state.student.code) {
         showToast("toast", "لا يمكن اختيار كودك كسامع للجلسة", "error");
         return;
       }
@@ -588,17 +646,17 @@
         const buildPayload = () => ({
           access_token: state.accessToken,
           p_client_request_id: state.pendingRequestId,
-          p_listener_type: listenerSelection.listenerType,
-          p_listener_code: listenerSelection.listenerCode,
+          p_listener_type: isQuranRecitation ? listenerSelection.listenerType : "outside",
+          p_listener_code: isQuranRecitation ? listenerSelection.listenerCode : null,
           p_pages: pagesValue,
-          p_surah_range: sessionRecordType === "mutun" ? null : document.getElementById("surah-range").value || null,
-          p_method: methodValue,
-          p_satisfaction: satisfactionValue,
-          p_notes: document.getElementById("notes").value || null,
-          p_session_timing: sessionTiming,
-          p_session_date: sessionTiming === "previous" ? sessionDate : null,
+          p_surah_range: isQuranRecitation ? document.getElementById("surah-range").value || null : null,
+          p_method: isReading ? "قراءة" : isMutun ? "تسميع متن" : methodValue,
+          p_satisfaction: isReading ? "قراءة" : satisfactionValue,
+          p_notes: notesValue || null,
+          p_session_timing: isQuranRecitation ? sessionTiming : "today",
+          p_session_date: isQuranRecitation && sessionTiming === "previous" ? sessionDate : null,
           p_session_kind: sessionRecordType,
-          p_matn_name: sessionRecordType === "mutun" ? matnNameValue : null,
+          p_matn_name: isReading ? matnNameValue : null,
         });
 
         let { data, error } = await window.TaahudSessionSubmit.callWithTransientRetry(
@@ -714,7 +772,7 @@
       "login-code": "اكتب كود الطالب",
       "login-password": "اكتب كلمة المرور",
       "listener-code": "اختر السامع أو نوع الجلسة",
-      "matn-name": "اكتب اسم المتن",
+      "matn-name": "اكتب اسم الكتاب",
       pages: "أدخل عددًا من نصف صفحة إلى ١٠٠ صفحة",
       "session-date": "اختر تاريخًا خلال آخر ٣ أيام",
     };

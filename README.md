@@ -27,8 +27,10 @@ project, its own Vercel deployment.
    student session shows success but does not appear in student/admin records.
    Run `supabase-extend-student-session-cache.sql` once to keep student logins
    saved in the browser for 30 days.
-   Run `supabase-add-mutun-session-fields.sql` once to enable recording mutun
-   sessions with matn name and mastery level.
+   Run `supabase-add-mutun-session-fields.sql` once to enable the initial mutun
+   session fields.
+   Run `supabase-add-reading-session-kind.sql` once to enable the simplified
+   mutun-recitation and reading record types.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.

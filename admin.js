@@ -789,7 +789,13 @@ window.TaahudAdmin = (function () {
   }
 
   function sessionContentLabel(session) {
-    return session.sessionKind === "mutun" ? session.matnName || "" : session.surahRange || "";
+    if (session.sessionKind === "reading") {
+      return session.matnName ? "كتاب " + session.matnName : "";
+    }
+    if (session.sessionKind === "mutun") {
+      return "تسميع متن";
+    }
+    return session.surahRange || "";
   }
 
   function formatNumber(value) {
@@ -1106,8 +1112,8 @@ window.TaahudAdmin = (function () {
     );
     renderBarList("overview-streaks", window.TaahudStats.streakDistribution(activeStudents, sessions, now), "sessions");
 
-    const validMethods = new Set(["تليجرام", "واتس", "مكالمة هاتفية", "جوجل ميت", "مقابلة", "استماع", "أخرى"]);
-    const validSatisfaction = new Set(["نعم تماما", "يحتاج إلى مزيد من الضبط", "وردي كان ورد استماع", "متقن", "متوسط", "يحتاج إلى إعادة"]);
+    const validMethods = new Set(["تليجرام", "واتس", "مكالمة هاتفية", "جوجل ميت", "مقابلة", "استماع", "تسميع متن", "قراءة", "أخرى"]);
+    const validSatisfaction = new Set(["نعم تماما", "يحتاج إلى مزيد من الضبط", "وردي كان ورد استماع", "متقن", "متوسط", "يحتاج إلى إعادة", "قراءة"]);
     const qualityIssues = sessions.reduce((count, session) => count + (
       Number(session.pages) <= 0 || Number(session.pages) > 100 ||
       !validMethods.has(session.method) || !validSatisfaction.has(session.satisfaction) ||
