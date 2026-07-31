@@ -91,7 +91,10 @@ begin
   if session_kind not in ('recitation', 'mutun', 'reading') then
     raise exception 'invalid_session_kind' using errcode = 'P0001';
   end if;
-  if session_kind = 'reading' and trim(coalesce(p_matn_name, '')) = '' then
+  if session_kind in ('mutun', 'reading') and trim(coalesce(p_matn_name, '')) = '' then
+    if session_kind = 'mutun' then
+      raise exception 'missing_matn_name' using errcode = 'P0001';
+    end if;
     raise exception 'missing_book_name' using errcode = 'P0001';
   end if;
   if p_listener_type not in ('student', 'outside', 'listening_only') then
@@ -161,14 +164,14 @@ begin
     session_date, session_timing, client_request_id)
   values (reciter.id, p_listener_type, case when p_listener_type = 'student' then listener.id end,
     p_pages, case when session_kind = 'recitation' then nullif(trim(p_surah_range), '') end,
-    session_kind, case when session_kind = 'reading' then nullif(trim(p_matn_name), '') end,
+    session_kind, case when session_kind in ('mutun', 'reading') then nullif(trim(p_matn_name), '') end,
     p_method, p_satisfaction, nullif(trim(p_notes), ''),
     reciter_points, listener_points, effective_day, p_session_timing, p_client_request_id)
   returning id into inserted_id;
 
   return jsonb_build_object('id', inserted_id, 'pointsAwarded', reciter_points,
     'listenerPointsAwarded', listener_points, 'sessionDate', effective_day,
-    'sessionKind', session_kind, 'matnName', case when session_kind = 'reading' then nullif(trim(p_matn_name), '') end,
+    'sessionKind', session_kind, 'matnName', case when session_kind in ('mutun', 'reading') then nullif(trim(p_matn_name), '') end,
     'duplicate', false);
 exception when unique_violation then
   select * into existing
@@ -189,10 +192,13 @@ $$;
 grant execute on function public.record_student_session(text,uuid,text,text,numeric,text,text,text,text,text,date,text,text)
   to anon, authenticated;
 
+drop function if exists public.admin_update_session(uuid,numeric,text,text,text,text,date,integer,integer,text);
+
 create or replace function public.admin_update_session(
   target_session_id uuid,
   p_pages numeric,
   p_surah_range text,
+  p_matn_name text,
   p_method text,
   p_satisfaction text,
   p_notes text,
@@ -232,9 +238,13 @@ begin
     and p_satisfaction not in ('نعم تماما','يحتاج إلى مزيد من الضبط','وردي كان ورد استماع') then
     raise exception 'invalid_session_values' using errcode = 'P0001';
   end if;
+  if row_kind in ('mutun', 'reading') and trim(coalesce(p_matn_name, '')) = '' then
+    raise exception 'invalid_session_values' using errcode = 'P0001';
+  end if;
   update public.sessions
   set pages = p_pages,
       surah_range = case when row_kind = 'recitation' then nullif(trim(p_surah_range), '') else old_row.surah_range end,
+      matn_name = case when row_kind in ('mutun', 'reading') then nullif(trim(p_matn_name), '') else old_row.matn_name end,
       method = p_method,
       satisfaction = p_satisfaction,
       notes = nullif(trim(p_notes), ''),
@@ -246,13 +256,14 @@ begin
   where id = target_session_id;
   insert into public.admin_audit_log(admin_id,action,entity_type,entity_id,old_data,new_data,reason)
   values(auth.uid(),'update','session',target_session_id,to_jsonb(old_row),
-    jsonb_build_object('pages',p_pages,'method',p_method,'satisfaction',p_satisfaction,'sessionDate',p_session_date,
+    jsonb_build_object('pages',p_pages,'matnName',case when row_kind in ('mutun', 'reading') then nullif(trim(p_matn_name), '') else old_row.matn_name end,
+      'method',p_method,'satisfaction',p_satisfaction,'sessionDate',p_session_date,
       'pointsAwarded',p_points_awarded,'listenerPointsAwarded',p_listener_points_awarded),nullif(trim(change_reason),''));
 end;
 $$;
 
-revoke execute on function public.admin_update_session(uuid,numeric,text,text,text,text,date,integer,integer,text) from public, anon;
-grant execute on function public.admin_update_session(uuid,numeric,text,text,text,text,date,integer,integer,text)
+revoke execute on function public.admin_update_session(uuid,numeric,text,text,text,text,text,date,integer,integer,text) from public, anon;
+grant execute on function public.admin_update_session(uuid,numeric,text,text,text,text,text,date,integer,integer,text)
   to authenticated;
 
 commit;

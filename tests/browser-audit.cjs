@@ -33,6 +33,13 @@ const sessions = [
     points_awarded: 11, listener_points_awarded: 0,
     student: { code: "002", name: "سارة علي" }, listener: null,
   },
+  {
+    id: "x3", student_id: "s1", listener_type: "outside", listener_student_id: null,
+    pages: 12, method: "تسميع متن", created_at: "2026-07-15T09:00:00Z", session_date: "2026-07-15",
+    session_timing: "today", session_kind: "mutun", matn_name: "تحفة الأطفال", surah_range: null,
+    satisfaction: "متقن", notes: "مراجعة الأبيات", points_awarded: 29, listener_points_awarded: 0,
+    student: { code: "001", name: "أحمد محمد" }, listener: null,
+  },
 ];
 
 async function installMock(page, admin) {
@@ -136,6 +143,7 @@ async function installMock(page, admin) {
             !window.__rpcCalls.some((call) => call.name === "student_login")
           );
         });
+        await page.check('input[name="session-record-type"][value="recitation"]');
         await page.check('input[name="listener-type"][value="student"]');
         const studentShowsCode = await page.locator("#listener-student-code-group").isVisible();
         await page.check('input[name="listener-type"][value="outside"]');
@@ -149,17 +157,40 @@ async function installMock(page, admin) {
         await page.evaluate((passed) => { window.__listenerTypeAudit = passed; },
           arabicCodeNormalized && studentShowsCode && outsideHidesCode && listeningState.codeHidden &&
           listeningState.methodVisible && listeningState.satisfactionHidden);
+        await page.check('input[name="session-record-type"][value="mutun"]');
+        const mutunNameState = await page.evaluate(() => ({
+          visible: !document.getElementById("matn-name-group").hidden,
+          required: document.getElementById("matn-name").required,
+          label: document.getElementById("matn-name-label").textContent,
+        }));
+        await page.fill("#pages", "12");
+        await page.fill("#matn-name", "تحفة الأطفال");
+        await page.selectOption("#satisfaction", "متقن");
+        await page.fill("#notes", "مراجعة الأبيات");
+        await page.click("#submit-btn");
+        await page.waitForFunction(() => window.__rpcCalls.some((call) =>
+          call.name === "record_student_session" && call.args.p_session_kind === "mutun"));
+        await page.evaluate((fieldState) => {
+          const call = window.__rpcCalls.find((entry) =>
+            entry.name === "record_student_session" && entry.args.p_session_kind === "mutun");
+          window.__mutunNameAudit = Boolean(
+            fieldState.visible && fieldState.required && fieldState.label === "اسم المتن" &&
+            call && call.args.p_matn_name === "تحفة الأطفال"
+          );
+        }, mutunNameState);
         await page.screenshot({ path: `${outputDir}/student-form-${viewport.name}-audit.png`, fullPage: true });
         await page.click('[data-student-view="stats"]');
       } else {
         await page.waitForSelector("#dashboard-view:not([hidden])");
         await page.waitForSelector("#overview-at-risk-more:not([hidden])");
+        const atRiskTotal = Number(await page.locator("#overview-at-risk-count").textContent());
         await page.click("#overview-at-risk-more");
         await page.waitForSelector("#at-risk-dialog[open]");
         const atRiskDialogCount = await page.locator("#at-risk-dialog-list .followup-item").count();
         await page.screenshot({ path: `${outputDir}/at-risk-dialog-${viewport.name}-audit.png`, fullPage: true });
         await page.click("#close-at-risk-dialog");
-        await page.evaluate((count) => { window.__atRiskDialogAudit = count === 9; }, atRiskDialogCount);
+        await page.evaluate(({ count, total }) => { window.__atRiskDialogAudit = count === total; },
+          { count: atRiskDialogCount, total: atRiskTotal });
         await page.click('[data-tab="roster"]');
         await page.selectOption("#roster-sort", "points-desc");
         await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === window.__mockStudentCount);
@@ -201,6 +232,30 @@ async function installMock(page, admin) {
             rulesCall.args.p_listener_page === 2 && rulesCall.args.change_reason === "اختبار آلي"
           );
         });
+        await page.click('[data-tab="log"]');
+        await page.waitForSelector("#log-body tr");
+        const mutunRow = page.locator("#log-body tr", { hasText: "متن تحفة الأطفال" });
+        await mutunRow.locator("button", { hasText: "تعديل" }).click();
+        const adminMutunState = await page.evaluate(() => ({
+          visible: !document.getElementById("edit-matn-name-group").hidden,
+          required: document.getElementById("edit-matn-name").required,
+          value: document.getElementById("edit-matn-name").value,
+          label: document.getElementById("edit-matn-name-label").textContent,
+        }));
+        await page.fill("#edit-matn-name", "الجزرية");
+        await page.fill("#edit-reason", "اختبار اسم المتن");
+        await page.click('#session-edit-form button[type="submit"]');
+        await page.waitForFunction(() => window.__rpcCalls.some((call) =>
+          call.name === "admin_update_session" && call.args.p_matn_name === "الجزرية"));
+        await page.evaluate((fieldState) => {
+          const call = window.__rpcCalls.find((entry) =>
+            entry.name === "admin_update_session" && entry.args.p_matn_name === "الجزرية");
+          window.__adminMutunNameAudit = Boolean(
+            fieldState.visible && fieldState.required &&
+            fieldState.value === "تحفة الأطفال" && fieldState.label === "اسم المتن" &&
+            call && call.args.change_reason === "اختبار اسم المتن"
+          );
+        }, adminMutunState);
       }
       await page.screenshot({ path: `${outputDir}/${kind}-${viewport.name}-audit.png`, fullPage: true });
       const metrics = await page.evaluate(() => ({
@@ -218,6 +273,8 @@ async function installMock(page, admin) {
           Array.from(document.querySelectorAll("#roster-body tr td:nth-child(4)"))
             .map((cell) => Number(cell.textContent)).every((value, index, values) => !index || values[index - 1] >= value),
         listenerTypesWork: window.__listenerTypeAudit !== false,
+        mutunNameWorks: window.__mutunNameAudit !== false,
+        adminMutunNameWorks: window.__adminMutunNameAudit !== false,
         studentAutoLoginWorks: window.__studentAutoLoginAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
@@ -233,6 +290,7 @@ async function installMock(page, admin) {
   if (results.some((result) => result.errors.length || result.metrics.scrollWidth > result.metrics.clientWidth
     || result.metrics.duplicateIds.length || result.metrics.unlabeledFields.length || result.metrics.unnamedButtons
     || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
+    || !result.metrics.mutunNameWorks || !result.metrics.adminMutunNameWorks
     || !result.metrics.studentAutoLoginWorks
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
     || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;

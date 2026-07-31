@@ -85,7 +85,9 @@
     if (message.includes("invalid_student_session")) return "انتهت الجلسة، سجّل الدخول مرة أخرى";
     if (message.includes("self_listener_not_allowed")) return "لا يمكن اختيار كودك كسامع للجلسة";
     if (message.includes("invalid_pages")) return "عدد الصفحات يجب أن يكون من نصف صفحة إلى ١٠٠ صفحة";
-    if (message.includes("invalid_session_kind") || message.includes("missing_book_name")) return "راجع نوع التسجيل واسم الكتاب";
+    if (message.includes("invalid_session_kind")) return "راجع نوع التسجيل";
+    if (message.includes("missing_matn_name")) return "اكتب اسم المتن";
+    if (message.includes("missing_book_name")) return "اكتب اسم الكتاب";
     if (message.includes("missing_required_fields")) return "يرجى تعبئة جميع الحقول المطلوبة";
     if (message.includes("invalid_method") || message.includes("invalid_satisfaction")) return "راجع تفاصيل الجلسة المختارة";
     if (message.includes("password_change_required")) return "يجب تغيير كلمة المرور أولًا";
@@ -226,7 +228,7 @@
 
   function sessionDetailLabel(session) {
     if (session.sessionKind === "mutun") {
-      return ["تسميع متن", session.satisfaction]
+      return [session.matnName ? "متن " + session.matnName : "تسميع متن", session.satisfaction]
         .filter(Boolean)
         .join(" · ");
     }
@@ -521,11 +523,11 @@
       });
     }
 
-    matnGroup.hidden = !isReading;
-    matnName.required = isReading;
-    matnNameLabel.textContent = "اسم الكتاب";
-    matnName.placeholder = "مثال: حلية طالب العلم";
-    if (!isReading) matnName.value = "";
+    matnGroup.hidden = !isMutun && !isReading;
+    matnName.required = isMutun || isReading;
+    matnNameLabel.textContent = isMutun ? "اسم المتن" : "اسم الكتاب";
+    matnName.placeholder = isMutun ? "مثال: تحفة الأطفال" : "مثال: حلية طالب العلم";
+    if (!isMutun && !isReading) matnName.value = "";
 
     surahRangeGroup.hidden = !isQuranRecitation;
     if (!isQuranRecitation) surahRange.value = "";
@@ -626,7 +628,7 @@
         !Number.isFinite(pagesValue) ||
         pagesValue <= 0 ||
         pagesValue > 100 ||
-        (isReading && !matnNameValue) ||
+        ((isMutun || isReading) && !matnNameValue) ||
         (isQuranRecitation && !methodValue) ||
         ((isQuranRecitation || isMutun) && !satisfactionValue) ||
         ((isMutun || isReading) && !notesValue) ||
@@ -656,7 +658,7 @@
           p_session_timing: isQuranRecitation ? sessionTiming : "today",
           p_session_date: isQuranRecitation && sessionTiming === "previous" ? sessionDate : null,
           p_session_kind: sessionRecordType,
-          p_matn_name: isReading ? matnNameValue : null,
+          p_matn_name: isMutun || isReading ? matnNameValue : null,
         });
 
         let { data, error } = await window.TaahudSessionSubmit.callWithTransientRetry(
@@ -772,7 +774,7 @@
       "login-code": "اكتب كود الطالب",
       "login-password": "اكتب كلمة المرور",
       "listener-code": "اختر السامع أو نوع الجلسة",
-      "matn-name": "اكتب اسم الكتاب",
+      "matn-name": readSessionRecordType() === "mutun" ? "اكتب اسم المتن" : "اكتب اسم الكتاب",
       pages: "أدخل عددًا من نصف صفحة إلى ١٠٠ صفحة",
       "session-date": "اختر تاريخًا خلال آخر ٣ أيام",
     };

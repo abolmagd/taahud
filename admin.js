@@ -793,7 +793,7 @@ window.TaahudAdmin = (function () {
       return session.matnName ? "كتاب " + session.matnName : "";
     }
     if (session.sessionKind === "mutun") {
-      return "تسميع متن";
+      return session.matnName ? "متن " + session.matnName : "تسميع متن";
     }
     return session.surahRange || "";
   }
@@ -1229,6 +1229,8 @@ window.TaahudAdmin = (function () {
   }
 
   function openSessionEditor(session) {
+    const hasNamedContent = session.sessionKind === "mutun" || session.sessionKind === "reading";
+    const matnNameInput = document.getElementById("edit-matn-name");
     document.getElementById("edit-session-id").value = session.id;
     document.getElementById("edit-session-date").value = session.sessionDate;
     document.getElementById("edit-pages").value = session.pages;
@@ -1237,6 +1239,11 @@ window.TaahudAdmin = (function () {
     document.getElementById("edit-reciter-points").value = session.pointsAwarded || 0;
     document.getElementById("edit-listener-points").value = session.listenerPointsAwarded || 0;
     document.getElementById("edit-surah-range").value = session.surahRange || "";
+    document.getElementById("edit-surah-range-group").hidden = session.sessionKind !== "recitation";
+    document.getElementById("edit-matn-name-group").hidden = !hasNamedContent;
+    document.getElementById("edit-matn-name-label").textContent = session.sessionKind === "reading" ? "اسم الكتاب" : "اسم المتن";
+    matnNameInput.value = session.matnName || "";
+    matnNameInput.required = hasNamedContent;
     document.getElementById("edit-notes").value = session.notes || "";
     document.getElementById("edit-reason").value = "";
     document.getElementById("session-edit-dialog").showModal();
@@ -1248,6 +1255,7 @@ window.TaahudAdmin = (function () {
       target_session_id: document.getElementById("edit-session-id").value,
       p_pages: Number(document.getElementById("edit-pages").value),
       p_surah_range: document.getElementById("edit-surah-range").value || null,
+      p_matn_name: document.getElementById("edit-matn-name").value.trim() || null,
       p_method: document.getElementById("edit-method").value,
       p_satisfaction: document.getElementById("edit-satisfaction").value,
       p_notes: document.getElementById("edit-notes").value || null,
