@@ -63,7 +63,7 @@ begin
   if p_listener_type not in ('student', 'outside', 'listening_only') then
     raise exception 'invalid_listener_type' using errcode = 'P0001';
   end if;
-  if p_pages is null or p_pages <= 0 or p_pages > 100 then
+  if p_pages is null or p_pages <= 0 then
     raise exception 'invalid_pages' using errcode = 'P0001';
   end if;
   if p_method not in ('تليجرام','واتس','مكالمة هاتفية','جوجل ميت','مقابلة','استماع','أخرى') then

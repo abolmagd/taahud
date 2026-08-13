@@ -84,7 +84,7 @@
     if (message.includes("weak_password")) return "كلمة المرور يجب أن تكون ٨ أحرف على الأقل";
     if (message.includes("invalid_student_session")) return "انتهت الجلسة، سجّل الدخول مرة أخرى";
     if (message.includes("self_listener_not_allowed")) return "لا يمكن اختيار كودك كسامع للجلسة";
-    if (message.includes("invalid_pages")) return "عدد الصفحات يجب أن يكون من نصف صفحة إلى ١٠٠ صفحة";
+    if (message.includes("invalid_pages")) return "عدد الصفحات أو الأبيات يجب أن يكون أكبر من صفر";
     if (message.includes("invalid_session_kind")) return "راجع نوع التسجيل";
     if (message.includes("missing_matn_name")) return "اكتب اسم المتن";
     if (message.includes("missing_book_name")) return "اكتب اسم الكتاب";
@@ -545,9 +545,9 @@
     if (isReading) satisfaction.value = "";
 
     document.getElementById("notes-label").textContent = isReading
-      ? "اقتباس أو ملاحظة"
-      : isMutun ? "الملاحظات" : "ملاحظات واقتراحات (اختياري)";
-    notes.required = condensedRecord;
+      ? "اقتباس أو ملاحظة (اختياري)"
+      : isMutun ? "الملاحظات (اختياري)" : "ملاحظات واقتراحات (اختياري)";
+    notes.required = false;
 
     listeningOnlyCard.hidden = isMutun;
     if (isMutun && listeningOnlyInput && listeningOnlyInput.checked) {
@@ -627,11 +627,9 @@
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
         pagesValue <= 0 ||
-        pagesValue > 100 ||
         ((isMutun || isReading) && !matnNameValue) ||
         (isQuranRecitation && !methodValue) ||
         ((isQuranRecitation || isMutun) && !satisfactionValue) ||
-        ((isMutun || isReading) && !notesValue) ||
         (isQuranRecitation && sessionTiming === "previous" && !sessionDate)
       ) {
         showToast("toast", "يرجى تعبئة جميع الحقول المطلوبة", "error");
@@ -775,7 +773,7 @@
       "login-password": "اكتب كلمة المرور",
       "listener-code": "اختر السامع أو نوع الجلسة",
       "matn-name": readSessionRecordType() === "mutun" ? "اكتب اسم المتن" : "اكتب اسم الكتاب",
-      pages: "أدخل عددًا من نصف صفحة إلى ١٠٠ صفحة",
+      pages: "أدخل عددًا أكبر من صفر",
       "session-date": "اختر تاريخًا خلال آخر ٣ أيام",
     };
     document.querySelectorAll("input, select, textarea").forEach((field) => {

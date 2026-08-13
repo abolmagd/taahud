@@ -161,12 +161,12 @@ async function installMock(page, admin) {
         const mutunNameState = await page.evaluate(() => ({
           visible: !document.getElementById("matn-name-group").hidden,
           required: document.getElementById("matn-name").required,
+          notesRequired: document.getElementById("notes").required,
           label: document.getElementById("matn-name-label").textContent,
         }));
-        await page.fill("#pages", "12");
+        await page.fill("#pages", "120");
         await page.fill("#matn-name", "تحفة الأطفال");
         await page.selectOption("#satisfaction", "متقن");
-        await page.fill("#notes", "مراجعة الأبيات");
         await page.click("#submit-btn");
         await page.waitForFunction(() => window.__rpcCalls.some((call) =>
           call.name === "record_student_session" && call.args.p_session_kind === "mutun"));
@@ -175,7 +175,8 @@ async function installMock(page, admin) {
             entry.name === "record_student_session" && entry.args.p_session_kind === "mutun");
           window.__mutunNameAudit = Boolean(
             fieldState.visible && fieldState.required && fieldState.label === "اسم المتن" &&
-            call && call.args.p_matn_name === "تحفة الأطفال"
+            !fieldState.notesRequired && call && call.args.p_matn_name === "تحفة الأطفال" &&
+            call.args.p_pages === 120 && call.args.p_notes === null
           );
         }, mutunNameState);
         await page.screenshot({ path: `${outputDir}/student-form-${viewport.name}-audit.png`, fullPage: true });

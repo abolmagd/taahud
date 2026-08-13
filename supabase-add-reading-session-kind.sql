@@ -103,7 +103,7 @@ begin
   if session_kind in ('mutun', 'reading') and p_listener_type <> 'outside' then
     raise exception 'invalid_listener_type' using errcode = 'P0001';
   end if;
-  if p_pages is null or p_pages <= 0 or p_pages > 100 then
+  if p_pages is null or p_pages <= 0 then
     raise exception 'invalid_pages' using errcode = 'P0001';
   end if;
   if p_method not in ('تليجرام','واتس','مكالمة هاتفية','جوجل ميت','مقابلة','استماع','تسميع متن','قراءة','أخرى') then
@@ -118,10 +118,6 @@ begin
   if session_kind = 'recitation' and p_satisfaction not in ('نعم تماما','يحتاج إلى مزيد من الضبط','وردي كان ورد استماع') then
     raise exception 'invalid_satisfaction' using errcode = 'P0001';
   end if;
-  if session_kind in ('mutun', 'reading') and trim(coalesce(p_notes, '')) = '' then
-    raise exception 'missing_required_fields' using errcode = 'P0001';
-  end if;
-
   if p_session_timing = 'today' then
     effective_day := local_today;
   elsif session_kind = 'recitation' and p_session_timing = 'previous' and p_session_date between local_today - 3 and local_today - 1 then
@@ -221,7 +217,7 @@ begin
   if old_row.id is null then raise exception 'session_not_found' using errcode = 'P0001'; end if;
   row_kind := coalesce(old_row.session_kind, 'recitation');
 
-  if p_pages <= 0 or p_pages > 100 or p_session_date > public.taahud_current_local_date()
+  if p_pages <= 0 or p_session_date > public.taahud_current_local_date()
     or p_points_awarded < 0 or p_listener_points_awarded < 0 then
     raise exception 'invalid_session_values' using errcode = 'P0001';
   end if;

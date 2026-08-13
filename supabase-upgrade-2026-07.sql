@@ -355,7 +355,7 @@ begin
   if p_listener_type not in ('student', 'outside', 'listening_only') then
     raise exception 'invalid_listener_type' using errcode = 'P0001';
   end if;
-  if p_pages is null or p_pages <= 0 or p_pages > 100 then
+  if p_pages is null or p_pages <= 0 then
     raise exception 'invalid_pages' using errcode = 'P0001';
   end if;
   if p_method not in ('تليجرام','واتس','مكالمة هاتفية','جوجل ميت','مقابلة','استماع','أخرى') then
@@ -568,7 +568,7 @@ begin
   if not public.taahud_is_admin() then raise exception 'admin_required' using errcode = 'P0001'; end if;
   select * into old_row from public.sessions where id = target_session_id and deleted_at is null;
   if old_row.id is null then raise exception 'session_not_found' using errcode = 'P0001'; end if;
-  if p_pages <= 0 or p_pages > 100 or p_session_date > public.taahud_current_local_date()
+  if p_pages <= 0 or p_session_date > public.taahud_current_local_date()
     or p_points_awarded < 0 or p_listener_points_awarded < 0 then
     raise exception 'invalid_session_values' using errcode = 'P0001';
   end if;

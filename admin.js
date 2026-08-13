@@ -1115,7 +1115,7 @@ window.TaahudAdmin = (function () {
     const validMethods = new Set(["تليجرام", "واتس", "مكالمة هاتفية", "جوجل ميت", "مقابلة", "استماع", "تسميع متن", "قراءة", "أخرى"]);
     const validSatisfaction = new Set(["نعم تماما", "يحتاج إلى مزيد من الضبط", "وردي كان ورد استماع", "متقن", "متوسط", "يحتاج إلى إعادة", "قراءة"]);
     const qualityIssues = sessions.reduce((count, session) => count + (
-      Number(session.pages) <= 0 || Number(session.pages) > 100 ||
+      Number(session.pages) <= 0 ||
       !validMethods.has(session.method) || !validSatisfaction.has(session.satisfaction) ||
       (session.listenerType === "student" && session.studentId === session.listenerStudentId) ? 1 : 0
     ), 0);
