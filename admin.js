@@ -752,7 +752,7 @@ window.TaahudAdmin = (function () {
     try {
       const data = await fetchAllSessionRows(
         "id, pages, method, listener_type, created_at, student_id, listener_student_id, " +
-          "points_awarded, listener_points_awarded, session_date, session_timing, surah_range, session_kind, matn_name, satisfaction, notes, " +
+          "points_awarded, listener_points_awarded, session_date, session_timing, surah_range, surah_to, session_kind, matn_name, satisfaction, notes, " +
           "student:students!student_id(code, name), listener:students!listener_student_id(code, name)",
         true
       );
@@ -771,6 +771,7 @@ window.TaahudAdmin = (function () {
         pointsAwarded: row.points_awarded,
         listenerPointsAwarded: row.listener_points_awarded,
         surahRange: row.surah_range,
+        surahTo: row.surah_to,
         satisfaction: row.satisfaction,
         notes: row.notes,
         studentLabel: row.student ? row.student.code + " — " + row.student.name : "",
@@ -795,7 +796,9 @@ window.TaahudAdmin = (function () {
     if (session.sessionKind === "mutun") {
       return session.matnName ? "متن " + session.matnName : "تسميع متن";
     }
-    return session.surahRange || "";
+    return [session.surahRange && "من: " + session.surahRange, session.surahTo && "إلى: " + session.surahTo]
+      .filter(Boolean)
+      .join(" · ");
   }
 
   function formatNumber(value) {
@@ -1239,7 +1242,9 @@ window.TaahudAdmin = (function () {
     document.getElementById("edit-reciter-points").value = session.pointsAwarded || 0;
     document.getElementById("edit-listener-points").value = session.listenerPointsAwarded || 0;
     document.getElementById("edit-surah-range").value = session.surahRange || "";
+    document.getElementById("edit-surah-to").value = session.surahTo || "";
     document.getElementById("edit-surah-range-group").hidden = session.sessionKind !== "recitation";
+    document.getElementById("edit-surah-to-group").hidden = session.sessionKind !== "recitation";
     document.getElementById("edit-matn-name-group").hidden = !hasNamedContent;
     document.getElementById("edit-matn-name-label").textContent = session.sessionKind === "reading" ? "اسم الكتاب" : "اسم المتن";
     matnNameInput.value = session.matnName || "";
@@ -1255,6 +1260,7 @@ window.TaahudAdmin = (function () {
       target_session_id: document.getElementById("edit-session-id").value,
       p_pages: Number(document.getElementById("edit-pages").value),
       p_surah_range: document.getElementById("edit-surah-range").value || null,
+      p_surah_to: document.getElementById("edit-surah-to").value || null,
       p_matn_name: document.getElementById("edit-matn-name").value.trim() || null,
       p_method: document.getElementById("edit-method").value,
       p_satisfaction: document.getElementById("edit-satisfaction").value,
@@ -1297,6 +1303,7 @@ window.TaahudAdmin = (function () {
           sessionKind: s.sessionKind,
           matnName: s.matnName,
           surahRange: s.surahRange,
+          surahTo: s.surahTo,
           method: s.method,
           points: isReciter ? s.pointsAwarded || 0 : s.listenerPointsAwarded || 0,
           satisfaction: s.satisfaction,

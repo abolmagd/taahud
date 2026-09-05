@@ -261,7 +261,7 @@
     if (!sessions.length) {
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 7;
+      cell.colSpan = 8;
       cell.className = "empty-cell";
       cell.textContent = "لا توجد جلسات مسجلة بعد";
       row.appendChild(cell);
@@ -277,6 +277,7 @@
         { label: "الطرف الآخر", value: session.counterpart || "" },
         { label: "الأبيات/الصفحات", value: session.pages || 0 },
         { label: "من", value: session.surahRange || "—" },
+        { label: "إلى", value: session.surahTo || "—" },
         { label: "التفاصيل", value: sessionDetailLabel(session) },
         { label: "النقاط", value: session.points || 0 },
       ].forEach((entry) => {
@@ -497,6 +498,8 @@
     const matnNameLabel = document.getElementById("matn-name-label");
     const surahRangeGroup = document.getElementById("surah-range-group");
     const surahRange = document.getElementById("surah-range");
+    const surahToGroup = document.getElementById("surah-to-group");
+    const surahTo = document.getElementById("surah-to");
     const sessionTimingGroup = document.getElementById("session-timing-group");
     const sessionDateGroup = document.getElementById("session-date-group");
     const sessionDate = document.getElementById("session-date");
@@ -531,7 +534,9 @@
     if (!isMutun && !isReading) matnName.value = "";
 
     surahRangeGroup.hidden = !isQuranRecitation;
+    surahToGroup.hidden = !isQuranRecitation;
     if (!isQuranRecitation) surahRange.value = "";
+    if (!isQuranRecitation) surahTo.value = "";
 
     methodGroup.hidden = condensedRecord;
     method.required = isQuranRecitation;
@@ -651,6 +656,7 @@
           p_listener_code: isQuranRecitation ? listenerSelection.listenerCode : null,
           p_pages: pagesValue,
           p_surah_range: isQuranRecitation ? document.getElementById("surah-range").value || null : null,
+          p_surah_to: isQuranRecitation ? document.getElementById("surah-to").value || null : null,
           p_method: isReading ? "قراءة" : isMutun ? "تسميع متن" : methodValue,
           p_satisfaction: isReading ? "قراءة" : satisfactionValue,
           p_notes: notesValue || null,

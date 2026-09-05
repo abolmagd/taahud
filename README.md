@@ -34,6 +34,8 @@ project, its own Vercel deployment.
    updating an existing deployment to enable storing and editing mutun names,
    allow more than 100 pages/verses, and keep notes optional for mutun and
    reading records.
+   Run `supabase-add-surah-to.sql` once to store and display the optional
+   Quran recitation end point (`إلى`).
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
