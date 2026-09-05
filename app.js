@@ -261,7 +261,7 @@
     if (!sessions.length) {
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 6;
+      cell.colSpan = 7;
       cell.className = "empty-cell";
       cell.textContent = "لا توجد جلسات مسجلة بعد";
       row.appendChild(cell);
@@ -276,6 +276,7 @@
         { label: "الدور", value: roleLabel(session.role) },
         { label: "الطرف الآخر", value: session.counterpart || "" },
         { label: "الأبيات/الصفحات", value: session.pages || 0 },
+        { label: "من", value: session.surahRange || "—" },
         { label: "التفاصيل", value: sessionDetailLabel(session) },
         { label: "النقاط", value: session.points || 0 },
       ].forEach((entry) => {
