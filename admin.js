@@ -843,11 +843,11 @@ window.TaahudAdmin = (function () {
     container.appendChild(empty);
   }
 
-  function renderTopStudents(rows) {
-    const container = document.getElementById("overview-top-students");
+  function renderRankedStudents(containerId, rows, emptyMessage, valueLabel) {
+    const container = document.getElementById(containerId);
     container.innerHTML = "";
     if (!rows.length) {
-      clearAndEmpty(container, "لا توجد نقاط مسجلة هذا الشهر بعد");
+      clearAndEmpty(container, emptyMessage);
       return;
     }
     rows.forEach((student, index) => {
@@ -855,7 +855,7 @@ window.TaahudAdmin = (function () {
       item.type = "button";
       item.className = "rank-item";
       item.addEventListener("click", () =>
-        showStudentDetail({ id: student.studentId, code: student.code, name: student.name, active: true })
+        showStudentDetail({ id: student.studentId || student.id, code: student.code, name: student.name, active: student.active !== false })
       );
       const rankNumber = document.createElement("span");
       rankNumber.className = "rank-number";
@@ -863,11 +863,15 @@ window.TaahudAdmin = (function () {
       const name = document.createElement("span");
       name.className = "rank-name";
       name.textContent = student.code + " — " + student.name;
-      const points = document.createElement("strong");
-      points.textContent = student.pointsEarned;
-      item.append(rankNumber, name, points);
+      const value = document.createElement("strong");
+      value.textContent = valueLabel(student);
+      item.append(rankNumber, name, value);
       container.appendChild(item);
     });
+  }
+
+  function renderTopStudents(rows) {
+    renderRankedStudents("overview-top-students", rows, "لا توجد نقاط مسجلة هذا الشهر بعد", (student) => student.pointsEarned);
   }
 
   function renderRecentSessions(rows) {
@@ -1106,6 +1110,18 @@ window.TaahudAdmin = (function () {
 
     renderDailyActivity(sessions, now);
     renderTopStudents(window.TaahudStats.topStudents(activeStudents, sessions, "month", now, 6));
+    renderRankedStudents(
+      "overview-monthly-pages",
+      window.TaahudStats.monthlyPageAchievers(students, sessions, now),
+      "لم يتجاوز أحد ٢٠٠ صفحة هذا الشهر بعد",
+      (student) => formatNumber(student.totalPages) + " صفحة"
+    );
+    renderRankedStudents(
+      "overview-top-streaks",
+      window.TaahudStats.topCurrentStreaks(activeStudents, sessions, now),
+      "لا يوجد ستريك حالي بعد",
+      (student) => student.streak + " يوم"
+    );
     renderRecentSessions(sessions);
     renderBarList("overview-methods", window.TaahudStats.aggregateByField(sessions, "month", now, "method", "غير محدد"), "sessions");
     renderBarList(

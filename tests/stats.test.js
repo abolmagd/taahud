@@ -13,6 +13,8 @@ const {
   inactiveStudents,
   studentCurrentStreak,
   streakDistribution,
+  monthlyPageAchievers,
+  topCurrentStreaks,
   enrichStudentRoster,
   sortStudentRoster,
 } = require("../stats.js");
@@ -422,6 +424,42 @@ test("studentCurrentStreak and streakDistribution group current continuity", () 
   assert.equal(studentCurrentStreak("s1", sessions, reference), 2);
   assert.equal(studentCurrentStreak("s2", sessions, reference), 0);
   assert.deepEqual(streakDistribution(students, sessions, reference).map((group) => group.sessions), [1, 2, 0, 0]);
+});
+
+test("monthlyPageAchievers counts both roles, excludes verses and other months, and requires over 200 pages", () => {
+  const students = [
+    { id: "s1", code: "1", name: "Ahmed" },
+    { id: "s2", code: "2", name: "Sara" },
+    { id: "s3", code: "3", name: "Mona" },
+  ];
+  const sessions = [
+    { studentId: "s1", listenerType: "student", listenerStudentId: "s2", pages: 150, sessionKind: "recitation", sessionDate: "2026-07-04" },
+    { studentId: "s3", listenerType: "student", listenerStudentId: "s1", pages: 51, sessionKind: "reading", sessionDate: "2026-07-09" },
+    { studentId: "s2", pages: 50, sessionKind: "reading", sessionDate: "2026-07-10" },
+    { studentId: "s2", pages: 100, sessionKind: "mutun", sessionDate: "2026-07-11" },
+    { studentId: "s2", pages: 100, sessionKind: "recitation", sessionDate: "2026-06-30" },
+  ];
+  const result = monthlyPageAchievers(students, sessions, new Date(2026, 6, 17));
+  assert.deepEqual(result.map((row) => [row.studentId, row.totalPages]), [["s1", 201]]);
+});
+
+test("topCurrentStreaks ranks current activity including listeners and omits expired streaks", () => {
+  const students = [
+    { id: "s1", code: "2", name: "Ahmed" },
+    { id: "s2", code: "1", name: "Sara" },
+    { id: "s3", code: "3", name: "Mona" },
+  ];
+  const sessions = [
+    { studentId: "s1", sessionDate: "2026-07-17" },
+    { studentId: "s1", sessionDate: "2026-07-16" },
+    { studentId: "x", listenerType: "student", listenerStudentId: "s2", sessionDate: "2026-07-17" },
+    { studentId: "s2", sessionDate: "2026-07-16" },
+    { studentId: "s3", sessionDate: "2026-07-15" },
+  ];
+  assert.deepEqual(
+    topCurrentStreaks(students, sessions, new Date(2026, 6, 17)).map((row) => [row.id, row.streak]),
+    [["s2", 2], ["s1", 2]]
+  );
 });
 
 test("enrichStudentRoster calculates points and latest participation for both roles", () => {

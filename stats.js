@@ -285,6 +285,27 @@
     return groups;
   }
 
+  function monthlyPageAchievers(students, sessions, referenceDate, threshold) {
+    const minimum = threshold === undefined ? 200 : Number(threshold);
+    const pageSessions = sessionsInPeriod(sessions, "month", referenceDate)
+      .filter((session) => session.sessionKind !== "mutun");
+    return aggregateStudentStats(students, pageSessions, "month", referenceDate)
+      .map((student) => Object.assign({}, student, {
+        totalPages: student.pagesRecited + student.pagesListened,
+      }))
+      .filter((student) => student.totalPages > minimum)
+      .sort((a, b) => b.totalPages - a.totalPages || compareStudentCodes(a, b));
+  }
+
+  function topCurrentStreaks(students, sessions, referenceDate) {
+    return students
+      .map((student) => Object.assign({}, student, {
+        streak: studentCurrentStreak(student.id, sessions, referenceDate),
+      }))
+      .filter((student) => student.streak > 0)
+      .sort((a, b) => b.streak - a.streak || compareStudentCodes(a, b));
+  }
+
   function enrichStudentRoster(students, sessions) {
     const activity = new Map((students || []).map((student) => [student.id, { totalPoints: 0, lastActivity: null }]));
     (sessions || []).forEach((session) => {
@@ -363,6 +384,8 @@
     inactiveStudents,
     studentCurrentStreak,
     streakDistribution,
+    monthlyPageAchievers,
+    topCurrentStreaks,
     enrichStudentRoster,
     sortStudentRoster,
   };

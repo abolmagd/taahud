@@ -506,6 +506,10 @@ body {
   margin-bottom: 0;
 }
 
+.dashboard-panel:not(.dashboard-full) {
+  grid-column: span 2;
+}
+
 .dashboard-wide {
   grid-column: span 3;
 }
@@ -617,6 +621,12 @@ body {
 .bar-list {
   display: grid;
   gap: 10px;
+}
+
+.rank-list-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+  align-content: start;
 }
 
 .rank-item,
@@ -1340,6 +1350,10 @@ hr.divider {
 @media (max-width: 900px) {
   .dashboard-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-panel:not(.dashboard-full) {
+    grid-column: span 1;
   }
 
   .metric-card {
