@@ -165,32 +165,6 @@
     return selectedType ? selectedType.value : "";
   }
 
-  const recitationSatisfactionOptions = [
-    ["", "اختر..."],
-    ["نعم تماما", "نعم تماما"],
-    ["يحتاج إلى مزيد من الضبط", "يحتاج إلى مزيد من الضبط"],
-    ["وردي كان ورد استماع", "وردي كان ورد استماع"],
-  ];
-
-  const mutunMasteryOptions = [
-    ["", "اختر..."],
-    ["متقن", "متقن"],
-    ["متوسط", "متوسط"],
-    ["يحتاج إلى إعادة", "يحتاج إلى إعادة"],
-  ];
-
-  function setSelectOptions(select, options) {
-    const currentValue = select.value;
-    select.innerHTML = "";
-    options.forEach(([value, label]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      select.appendChild(option);
-    });
-    select.value = options.some(([value]) => value === currentValue) ? currentValue : "";
-  }
-
   function cairoDateParts(value) {
     const date = value ? new Date(value) : new Date();
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -237,7 +211,7 @@
         .filter(Boolean)
         .join(" · ");
     }
-    return session.method || "";
+    return session.method === "غير محدد" ? "" : session.method || "";
   }
 
   const periodLabels = {
@@ -524,8 +498,6 @@
     const sessionTimingGroup = document.getElementById("session-timing-group");
     const sessionDateGroup = document.getElementById("session-date-group");
     const sessionDate = document.getElementById("session-date");
-    const methodGroup = document.getElementById("method-group");
-    const method = document.getElementById("method");
     const notes = document.getElementById("notes");
     const listeningOnlyCard = document.getElementById("listening-only-card");
     const listeningOnlyInput = document.querySelector('input[name="listener-type"][value="listening_only"]');
@@ -559,20 +531,12 @@
     if (!isQuranRecitation) surahRange.value = "";
     if (!isQuranRecitation) surahTo.value = "";
 
-    methodGroup.hidden = condensedRecord;
-    method.required = isQuranRecitation;
-    if (condensedRecord) method.value = "";
-
     document.getElementById("pages-label").textContent = isMutun ? "عدد الأبيات" : "عدد الصفحات";
-    document.getElementById("pages-help").hidden = !isMutun;
     document.getElementById("pages").min = isMutun ? "1" : "0.5";
     document.getElementById("pages").step = isMutun ? "1" : "0.5";
-    document.getElementById("session-details-legend").textContent = condensedRecord ? "التفاصيل" : "تفاصيل التسميع";
-    document.getElementById("satisfaction-label").textContent = isMutun ? "الإتقان" : "هل أنت راض عن جودة محفوظك الذي سمعته؟";
-    setSelectOptions(satisfaction, isMutun ? mutunMasteryOptions : recitationSatisfactionOptions);
-    document.getElementById("satisfaction-group").hidden = isReading;
-    satisfaction.required = isMutun || isQuranRecitation;
-    if (isReading) satisfaction.value = "";
+    document.getElementById("satisfaction-group").hidden = !isMutun;
+    satisfaction.required = isMutun;
+    if (!isMutun) satisfaction.value = "";
 
     document.getElementById("notes-label").textContent = isReading
       ? "اقتباس أو ملاحظة (اختياري)"
@@ -589,27 +553,16 @@
   function syncListenerFields() {
     const selection = readListenerSelection();
     const studentListener = selection.listenerType === "student";
-    const listeningOnly = selection.listenerType === "listening_only";
     const sessionRecordType = readSessionRecordType();
     const isQuranRecitation = sessionRecordType === "recitation";
     const isMutun = sessionRecordType === "mutun";
-    const isReading = sessionRecordType === "reading";
     const listenerCode = document.getElementById("listener-code");
-    const method = document.getElementById("method");
     const satisfaction = document.getElementById("satisfaction");
     document.getElementById("listener-student-code-group").hidden = !studentListener || !isQuranRecitation;
     listenerCode.required = studentListener && isQuranRecitation;
     if (!studentListener) listenerCode.value = "";
-    document.getElementById("method-group").hidden = !isQuranRecitation;
-    document.getElementById("satisfaction-group").hidden = isReading || (isQuranRecitation && listeningOnly);
-    document.getElementById("method-label").textContent = listeningOnly ? "طريقة الاستماع؟" : "طريقة التسميع؟";
-    method.required = isQuranRecitation;
-    satisfaction.required = isMutun || (isQuranRecitation && !listeningOnly);
-    if (listeningOnly && isQuranRecitation) {
-      satisfaction.value = "وردي كان ورد استماع";
-    } else if (isQuranRecitation && satisfaction.value === "وردي كان ورد استماع") {
-      satisfaction.value = "";
-    }
+    document.getElementById("satisfaction-group").hidden = !isMutun;
+    satisfaction.required = isMutun;
   }
 
   function wireSessionTiming() {
@@ -640,7 +593,6 @@
       const sessionRecordType = readSessionRecordType();
       const pagesRaw = document.getElementById("pages").value;
       const pagesValue = Number(pagesRaw);
-      const methodValue = document.getElementById("method").value;
       const satisfactionValue = document.getElementById("satisfaction").value;
       const matnNameValue = document.getElementById("matn-name").value.trim();
       const notesValue = document.getElementById("notes").value.trim();
@@ -659,8 +611,7 @@
         pagesValue <= 0 ||
         (isMutun && !Number.isInteger(pagesValue)) ||
         ((isMutun || isReading) && !matnNameValue) ||
-        (isQuranRecitation && !methodValue) ||
-        ((isQuranRecitation || isMutun) && !satisfactionValue) ||
+        (isMutun && !satisfactionValue) ||
         (isQuranRecitation && sessionTiming === "previous" && !sessionDate)
       ) {
         showToast("toast", "يرجى تعبئة جميع الحقول المطلوبة", "error");
@@ -682,8 +633,9 @@
           p_pages: pagesValue,
           p_surah_range: isQuranRecitation ? document.getElementById("surah-range").value || null : null,
           p_surah_to: isQuranRecitation ? document.getElementById("surah-to").value || null : null,
-          p_method: isReading ? "قراءة" : isMutun ? "تسميع متن" : methodValue,
-          p_satisfaction: isReading ? "قراءة" : satisfactionValue,
+          p_method: isReading ? "قراءة" : isMutun ? "تسميع متن" : "غير محدد",
+          p_satisfaction: isReading ? "قراءة" : isMutun ? satisfactionValue
+            : listenerSelection.listenerType === "listening_only" ? "وردي كان ورد استماع" : "غير محدد",
           p_notes: notesValue || null,
           p_session_timing: isQuranRecitation ? sessionTiming : "today",
           p_session_date: isQuranRecitation && sessionTiming === "previous" ? sessionDate : null,

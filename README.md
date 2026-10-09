@@ -39,6 +39,8 @@ project, its own Vercel deployment.
    Run `supabase-mutun-half-point-home-rank.sql` once after that to award
    half a point per complete mutun verse, adjust existing mutun scores, and
    enable the student's private score rank on the home screen.
+   Run `supabase-simplify-recitation-fields.sql` after that to store a neutral
+   value for the removed Quran recitation questions while preserving older records.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.

@@ -155,7 +155,11 @@ async function installMock(page, admin) {
             !document.getElementById("student-view-home").hidden &&
             document.getElementById("student-home-rank").textContent === "أنت رقم 2 من 11" &&
             document.getElementById("student-home-points").textContent === "23" &&
-            document.getElementById("student-home-streak").textContent === "0"
+            document.getElementById("student-home-streak").textContent === "0" &&
+            document.querySelectorAll(".student-home-icon svg").length === 2 &&
+            document.querySelector(".student-home-score").textContent.includes("منذ بداية مشاركتك") &&
+            !document.getElementById("student-view-home").textContent.includes("بين الطلاب النشطين") &&
+            !document.getElementById("student-view-home").textContent.includes("كل بيت")
           );
         });
         await page.screenshot({ path: `${outputDir}/student-home-${viewport.name}-audit.png`, fullPage: true });
@@ -168,12 +172,24 @@ async function installMock(page, admin) {
         await page.check('input[name="listener-type"][value="listening_only"]');
         const listeningState = await page.evaluate(() => ({
           codeHidden: document.getElementById("listener-student-code-group").hidden,
-          methodVisible: !document.getElementById("method-group").hidden,
+          methodRemoved: !document.getElementById("method-group"),
           satisfactionHidden: document.getElementById("satisfaction-group").hidden,
         }));
         await page.evaluate((passed) => { window.__listenerTypeAudit = passed; },
           arabicCodeNormalized && studentShowsCode && outsideHidesCode && listeningState.codeHidden &&
-          listeningState.methodVisible && listeningState.satisfactionHidden);
+          listeningState.methodRemoved && listeningState.satisfactionHidden);
+        await page.check('input[name="listener-type"][value="outside"]');
+        await page.fill("#pages", "2");
+        await page.click("#submit-btn");
+        await page.waitForFunction(() => window.__rpcCalls.some((call) =>
+          call.name === "record_student_session" && call.args.p_session_kind === "recitation"));
+        await page.evaluate(() => {
+          const call = window.__rpcCalls.find((entry) =>
+            entry.name === "record_student_session" && entry.args.p_session_kind === "recitation");
+          window.__recitationDefaultsAudit = Boolean(call && call.args.p_method === "غير محدد" &&
+            call.args.p_satisfaction === "غير محدد" && call.args.p_pages === 2);
+        });
+        await page.waitForSelector("#session-receipt:not([hidden])");
         await page.check('input[name="session-record-type"][value="mutun"]');
         const mutunNameState = await page.evaluate(() => ({
           visible: !document.getElementById("matn-name-group").hidden,
@@ -295,6 +311,7 @@ async function installMock(page, admin) {
         adminMutunNameWorks: window.__adminMutunNameAudit !== false,
         studentAutoLoginWorks: window.__studentAutoLoginAudit !== false,
         studentHomeWorks: window.__studentHomeAudit !== false,
+        recitationDefaultsWork: window.__recitationDefaultsAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
         atRiskDialogWork: window.__atRiskDialogAudit !== false,
@@ -312,6 +329,7 @@ async function installMock(page, admin) {
     || !result.metrics.mutunNameWorks || !result.metrics.adminMutunNameWorks
     || !result.metrics.studentAutoLoginWorks
     || !result.metrics.studentHomeWorks
+    || !result.metrics.recitationDefaultsWork
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
     || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;
 })().catch((error) => {
