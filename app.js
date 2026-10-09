@@ -312,10 +312,33 @@
     state.student = profile.student;
     state.sessions = profile.sessions || [];
 
-    document.getElementById("student-dashboard-title").textContent =
-      state.student.code + " — " + state.student.name;
+    document.getElementById("student-dashboard-title").textContent = state.student.name;
+    document.getElementById("student-home-points").textContent =
+      window.TaahudStudentDashboard.aggregateStudentSessions(state.sessions).totalPoints;
+    const streak = window.TaahudStudentDashboard.currentStreak(state.sessions, cairoDate());
+    document.getElementById("student-home-streak").textContent = streak;
+    document.getElementById("student-home-streak-hint").textContent = streak
+      ? "استمر في تسجيل جلسة كل يوم"
+      : "ابدأ اليوم وسجّل أول جلسة";
     renderStats();
     renderHistory();
+  }
+
+  async function refreshStudentRank() {
+    const rank = document.getElementById("student-home-rank");
+    rank.textContent = "جارٍ حساب الترتيب...";
+    try {
+      const { data, error } = await state.client.rpc("get_student_score_rank", {
+        access_token: state.accessToken,
+      });
+      if (error) throw error;
+      rank.textContent = data && data.rank && data.totalStudents
+        ? "أنت رقم " + data.rank + " من " + data.totalStudents
+        : "الترتيب غير متاح الآن";
+    } catch (error) {
+      console.warn("[Ta'ahud] Failed to load student rank", error);
+      rank.textContent = "الترتيب غير متاح الآن";
+    }
   }
 
   function profileIncludesSession(profile, sessionId) {
@@ -353,7 +376,7 @@
     populateListenerSelect();
     renderDashboard(profile);
     showView("dashboard");
-    showStudentView("checkin");
+    showStudentView("home");
   }
 
   function showStudentView(name) {
@@ -362,12 +385,10 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
-    ["checkin", "stats", "records", "account"].forEach((view) => {
+    ["home", "checkin", "stats", "records", "account"].forEach((view) => {
       document.getElementById("student-view-" + view).hidden = view !== name;
     });
-    const panel = document.getElementById("student-view-" + name);
-    panel.setAttribute("tabindex", "-1");
-    panel.focus({ preventScroll: true });
+    if (name === "home") refreshStudentRank();
   }
 
   function wireStudentNavigation() {
@@ -543,6 +564,9 @@
     if (condensedRecord) method.value = "";
 
     document.getElementById("pages-label").textContent = isMutun ? "عدد الأبيات" : "عدد الصفحات";
+    document.getElementById("pages-help").hidden = !isMutun;
+    document.getElementById("pages").min = isMutun ? "1" : "0.5";
+    document.getElementById("pages").step = isMutun ? "1" : "0.5";
     document.getElementById("session-details-legend").textContent = condensedRecord ? "التفاصيل" : "تفاصيل التسميع";
     document.getElementById("satisfaction-label").textContent = isMutun ? "الإتقان" : "هل أنت راض عن جودة محفوظك الذي سمعته؟";
     setSelectOptions(satisfaction, isMutun ? mutunMasteryOptions : recitationSatisfactionOptions);
@@ -633,6 +657,7 @@
         !pagesRaw ||
         !Number.isFinite(pagesValue) ||
         pagesValue <= 0 ||
+        (isMutun && !Number.isInteger(pagesValue)) ||
         ((isMutun || isReading) && !matnNameValue) ||
         (isQuranRecitation && !methodValue) ||
         ((isQuranRecitation || isMutun) && !satisfactionValue) ||
@@ -705,7 +730,10 @@
         document.getElementById("session-date").required = false;
         syncSessionRecordFields();
         syncListenerFields();
-        if (profile) renderDashboard(profile);
+        if (profile) {
+          renderDashboard(profile);
+          refreshStudentRank();
+        }
         const details = "تاريخ " + formatShortDate(data.sessionDate) + " · " + data.pointsAwarded + " نقطة";
         document.getElementById("session-receipt-details").textContent = profileError
           ? details + " · تم الحفظ، وسيتم تحديث الإحصائيات عند إعادة فتح الصفحة"
@@ -772,6 +800,7 @@
 
   function wireReceipt() {
     document.getElementById("open-records-btn").addEventListener("click", () => showStudentView("records"));
+    document.getElementById("home-checkin-btn").addEventListener("click", () => showStudentView("checkin"));
   }
 
   function wireInlineValidation() {

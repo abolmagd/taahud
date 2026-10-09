@@ -140,7 +140,8 @@
 
       effectiveByIndex.set(index, {
         session,
-        pointsAwarded: (awardReciterDaily ? rules.dailyCheckin : 0) + Math.trunc(pages * rules.reciterPage),
+        pointsAwarded: (awardReciterDaily ? rules.dailyCheckin : 0) +
+          (session.sessionKind === "mutun" ? pages * 0.5 : Math.trunc(pages * rules.reciterPage)),
         listenerPointsAwarded,
       });
     });

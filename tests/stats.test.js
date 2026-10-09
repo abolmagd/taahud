@@ -17,7 +17,14 @@ const {
   topCurrentStreaks,
   enrichStudentRoster,
   sortStudentRoster,
+  withEffectivePoints,
 } = require("../stats.js");
+
+test("withEffectivePoints keeps mutun verse scoring when page rules change", () => {
+  const sessions = [{ studentId: "s1", sessionKind: "mutun", pages: 3,
+    listenerType: "outside", sessionDate: "2026-07-08" }];
+  assert.equal(withEffectivePoints(sessions, { dailyCheckin: 5, reciterPage: 8, listenerPage: 1 })[0].pointsAwarded, 6.5);
+});
 
 // ─── periodBounds ───
 

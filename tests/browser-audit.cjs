@@ -87,6 +87,9 @@ async function installMock(page, admin) {
         if (name === "list_active_student_codes") {
           return Promise.resolve({ data: mockStudents.slice(1).filter((student) => student.active).map(({ id, code }) => ({ id, code })), error: null });
         }
+        if (name === "get_student_score_rank") {
+          return Promise.resolve({ data: { rank: 2, totalStudents: 11, points: 23 }, error: null });
+        }
         if (name === "record_student_session") {
           return Promise.resolve({ data: { sessionDate: "2026-07-17", pointsAwarded: 15 }, error: null });
         }
@@ -117,7 +120,10 @@ async function installMock(page, admin) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    ...(process.env.TAAHUD_CHROMIUM_EXECUTABLE ? { executablePath: process.env.TAAHUD_CHROMIUM_EXECUTABLE } : {}),
+  });
   const results = [];
   for (const viewport of [{ name: "desktop", width: 1280, height: 900 }, { name: "mobile", width: 390, height: 844 }]) {
     for (const kind of ["student", "admin"]) {
@@ -143,6 +149,17 @@ async function installMock(page, admin) {
             !window.__rpcCalls.some((call) => call.name === "student_login")
           );
         });
+        await page.waitForFunction(() => document.getElementById("student-home-rank").textContent.includes("أنت رقم"));
+        await page.evaluate(() => {
+          window.__studentHomeAudit = Boolean(
+            !document.getElementById("student-view-home").hidden &&
+            document.getElementById("student-home-rank").textContent === "أنت رقم 2 من 11" &&
+            document.getElementById("student-home-points").textContent === "23" &&
+            document.getElementById("student-home-streak").textContent === "0"
+          );
+        });
+        await page.screenshot({ path: `${outputDir}/student-home-${viewport.name}-audit.png`, fullPage: true });
+        await page.click("#home-checkin-btn");
         await page.check('input[name="session-record-type"][value="recitation"]');
         await page.check('input[name="listener-type"][value="student"]');
         const studentShowsCode = await page.locator("#listener-student-code-group").isVisible();
@@ -277,6 +294,7 @@ async function installMock(page, admin) {
         mutunNameWorks: window.__mutunNameAudit !== false,
         adminMutunNameWorks: window.__adminMutunNameAudit !== false,
         studentAutoLoginWorks: window.__studentAutoLoginAudit !== false,
+        studentHomeWorks: window.__studentHomeAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
         atRiskDialogWork: window.__atRiskDialogAudit !== false,
@@ -293,6 +311,7 @@ async function installMock(page, admin) {
     || !result.metrics.rosterPointsDescending || !result.metrics.listenerTypesWork
     || !result.metrics.mutunNameWorks || !result.metrics.adminMutunNameWorks
     || !result.metrics.studentAutoLoginWorks
+    || !result.metrics.studentHomeWorks
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
     || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;
 })().catch((error) => {

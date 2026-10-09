@@ -39,6 +39,15 @@ test("computeSessionPoints: daily check-in is independently optional for each pa
   );
 });
 
+test("computeSessionPoints: mutun awards half a point per complete verse plus any daily award", () => {
+  assert.deepEqual(computeSessionPoints({ sessionKind: "mutun", pages: 1, listenerType: "outside" }),
+    { reciterPoints: 0.5, listenerPoints: 0 });
+  assert.deepEqual(computeSessionPoints({ sessionKind: "mutun", pages: 2, listenerType: "outside" }),
+    { reciterPoints: 1, listenerPoints: 0 });
+  assert.deepEqual(computeSessionPoints({ sessionKind: "mutun", pages: 3, listenerType: "outside",
+    awardReciterDailyCheckin: true }), { reciterPoints: 6.5, listenerPoints: 0 });
+});
+
 test("computeSessionPoints: outside and listening-only sessions do not award listener points", () => {
   assert.deepEqual(
     computeSessionPoints({

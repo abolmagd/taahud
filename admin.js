@@ -1250,6 +1250,9 @@ window.TaahudAdmin = (function () {
   function openSessionEditor(session) {
     const hasNamedContent = session.sessionKind === "mutun" || session.sessionKind === "reading";
     const matnNameInput = document.getElementById("edit-matn-name");
+    const pagesInput = document.getElementById("edit-pages");
+    pagesInput.min = session.sessionKind === "mutun" ? "1" : "0.5";
+    pagesInput.step = session.sessionKind === "mutun" ? "1" : "0.5";
     document.getElementById("edit-session-id").value = session.id;
     document.getElementById("edit-session-date").value = session.sessionDate;
     document.getElementById("edit-pages").value = session.pages;

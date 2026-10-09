@@ -58,13 +58,16 @@
     const rules = normalizePointRules(input && input.pointRules);
     const pages = Math.max(0, Number(input && input.pages) || 0);
     const listenerType = input && input.listenerType;
+    const reciterActivityPoints = input && input.sessionKind === "mutun"
+      ? pages * 0.5
+      : Math.trunc(pages * rules.reciterPage);
 
     const reciterDailyPoints = input && input.awardReciterDailyCheckin ? rules.dailyCheckin : 0;
     const listenerDailyPoints =
       listenerType === "student" && input && input.awardListenerDailyCheckin ? rules.dailyCheckin : 0;
 
     return {
-      reciterPoints: reciterDailyPoints + Math.trunc(pages * rules.reciterPage),
+      reciterPoints: reciterDailyPoints + reciterActivityPoints,
       listenerPoints:
         listenerType === "student" ? listenerDailyPoints + Math.trunc(pages * rules.listenerPage) : 0,
     };
