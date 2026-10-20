@@ -1467,6 +1467,40 @@ hr.divider {
   margin: 16px 0;
 }
 
+.student-warning {
+  border-inline-start: 4px solid var(--warning);
+  background: var(--gold-soft);
+  margin-bottom: 20px;
+}
+
+.student-warning strong { color: var(--warning); }
+.student-warning-severe { border-inline-start-color: var(--danger); }
+.student-warning-severe strong, .warning-severe { color: var(--danger); font-weight: 700; }
+.student-warning p:last-child { margin-bottom: 0; }
+
+.warning-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.warning-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  text-align: start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.warning-group strong { font-size: 1.8rem; }
+.warning-group.active { background: var(--gold-soft); border-color: var(--warning); }
+.warning-group-severe strong { color: var(--danger); }
+
 [hidden] {
   display: none !important;
 }
@@ -1504,7 +1538,8 @@ hr.divider {
   .admin-page #roster-table,
   .admin-page #stats-table,
   .admin-page #student-detail-table,
-  .admin-page #log-table {
+  .admin-page #log-table,
+  .admin-page #warnings-table {
     display: block;
     width: 100%;
     min-width: 0;
@@ -1513,14 +1548,16 @@ hr.divider {
   .admin-page #roster-table thead,
   .admin-page #stats-table thead,
   .admin-page #student-detail-table thead,
-  .admin-page #log-table thead {
+  .admin-page #log-table thead,
+  .admin-page #warnings-table thead {
     display: none;
   }
 
   .admin-page #roster-table tbody,
   .admin-page #stats-table tbody,
   .admin-page #student-detail-table tbody,
-  .admin-page #log-table tbody {
+  .admin-page #log-table tbody,
+  .admin-page #warnings-table tbody {
     display: grid;
     gap: 12px;
     padding: 12px;
@@ -1529,7 +1566,8 @@ hr.divider {
   .admin-page #roster-table tr,
   .admin-page #stats-table tr,
   .admin-page #student-detail-table tr,
-  .admin-page #log-table tr {
+  .admin-page #log-table tr,
+  .admin-page #warnings-table tr {
     display: grid;
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
@@ -1541,7 +1579,8 @@ hr.divider {
   .admin-page #roster-table td,
   .admin-page #stats-table td,
   .admin-page #student-detail-table td,
-  .admin-page #log-table td {
+  .admin-page #log-table td,
+  .admin-page #warnings-table td {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -1557,7 +1596,8 @@ hr.divider {
   .admin-page #roster-table td::before,
   .admin-page #stats-table td::before,
   .admin-page #student-detail-table td::before,
-  .admin-page #log-table td::before {
+  .admin-page #log-table td::before,
+  .admin-page #warnings-table td::before {
     content: attr(data-label);
     flex: 0 0 120px;
     color: var(--muted);
@@ -1569,7 +1609,8 @@ hr.divider {
   .admin-page #roster-table .empty-cell,
   .admin-page #stats-table .empty-cell,
   .admin-page #student-detail-table .empty-cell,
-  .admin-page #log-table .empty-cell {
+  .admin-page #log-table .empty-cell,
+  .admin-page #warnings-table .empty-cell {
     display: block;
     text-align: center !important;
   }
@@ -1577,7 +1618,8 @@ hr.divider {
   .admin-page #roster-table .empty-cell::before,
   .admin-page #stats-table .empty-cell::before,
   .admin-page #student-detail-table .empty-cell::before,
-  .admin-page #log-table .empty-cell::before {
+  .admin-page #log-table .empty-cell::before,
+  .admin-page #warnings-table .empty-cell::before {
     content: none;
   }
 
@@ -1864,6 +1906,7 @@ hr.divider {
   .admin-page #stats-table td,
   .admin-page #student-detail-table td,
   .admin-page #log-table td,
+  .admin-page #warnings-table td,
   .student-history-table td {
     flex-direction: column;
     gap: 4px;
@@ -1873,7 +1916,8 @@ hr.divider {
   .admin-page #roster-table td::before,
   .admin-page #stats-table td::before,
   .admin-page #student-detail-table td::before,
-  .admin-page #log-table td::before {
+  .admin-page #log-table td::before,
+  .admin-page #warnings-table td::before {
     flex-basis: auto;
   }
 }

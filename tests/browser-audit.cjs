@@ -88,9 +88,22 @@ async function installMock(page, admin) {
           return Promise.resolve({ data: mockStudents.slice(1).filter((student) => student.active).map(({ id, code }) => ({ id, code })), error: null });
         }
         if (name === "get_student_score_rank") {
-          return Promise.resolve({ data: { rank: 2, totalStudents: 11, points: 23 }, error: null });
+          return Promise.resolve({ data: { rank: 2, totalStudents: 11, points: 8.5, period: "month" }, error: null });
+        }
+        if (name === "get_student_warnings") {
+          const warningCount = window.__mockWarningCount ?? 2;
+          return Promise.resolve({ data: { warningCount, inactiveDays: warningCount * 7,
+            lastActivityDate: "2026-10-07", nextWarningDate: "2026-10-28", asOfDate: "2026-10-21" }, error: null });
+        }
+        if (name === "admin_get_student_warnings") {
+          return Promise.resolve({ data: mockStudents.filter((student) => student.active).map((student, index) => ({
+            studentId: student.id, code: student.code, name: student.name,
+            warningCount: [1, 2, 3, 4][index % 4], inactiveDays: [7, 14, 21, 28][index % 4],
+            lastActivityDate: index % 2 ? null : "2026-10-07", nextWarningDate: "2026-10-28",
+          })), error: null });
         }
         if (name === "record_student_session") {
+          window.__mockWarningCount = 0;
           return Promise.resolve({ data: { sessionDate: "2026-07-17", pointsAwarded: 15 }, error: null });
         }
         if (name === "admin_reset_student_points") {
@@ -154,6 +167,8 @@ async function installMock(page, admin) {
           window.__studentHomeAudit = Boolean(
             !document.getElementById("student-view-home").hidden &&
             document.getElementById("student-home-rank").textContent === "أنت رقم 2 من 11" &&
+            document.getElementById("student-home-month-points").textContent === "8.5 نقطة هذا الشهر" &&
+            document.getElementById("student-view-home").textContent.includes("ترتيبك بنقاط الشهر") &&
             document.getElementById("student-home-points").textContent === "23" &&
             document.getElementById("student-home-streak").textContent === "0" &&
             document.querySelectorAll(".student-home-icon svg").length === 2 &&
@@ -161,6 +176,11 @@ async function installMock(page, admin) {
             !document.getElementById("student-view-home").textContent.includes("بين الطلاب النشطين") &&
             !document.getElementById("student-view-home").textContent.includes("كل بيت")
           );
+        });
+        await page.waitForSelector("#student-warning:not([hidden])");
+        await page.evaluate(() => {
+          window.__studentWarningsAudit = document.getElementById("student-warning-title").textContent === "الإنذار الثاني" &&
+            document.getElementById("student-warning-message").textContent.includes("14");
         });
         await page.screenshot({ path: `${outputDir}/student-home-${viewport.name}-audit.png`, fullPage: true });
         await page.click("#home-checkin-btn");
@@ -190,6 +210,8 @@ async function installMock(page, admin) {
             call.args.p_satisfaction === "غير محدد" && call.args.p_pages === 2);
         });
         await page.waitForSelector("#session-receipt:not([hidden])");
+        await page.waitForSelector("#student-warning", { state: "hidden" });
+        await page.evaluate(() => { window.__studentWarningsAudit &&= document.getElementById("student-warning").hidden; });
         await page.check('input[name="session-record-type"][value="mutun"]');
         const mutunNameState = await page.evaluate(() => ({
           visible: !document.getElementById("matn-name-group").hidden,
@@ -225,6 +247,26 @@ async function installMock(page, admin) {
         await page.click("#close-at-risk-dialog");
         await page.evaluate(({ count, total }) => { window.__atRiskDialogAudit = count === total; },
           { count: atRiskDialogCount, total: atRiskTotal });
+        await page.click('[data-tab="warnings"]');
+        await page.waitForFunction(() => document.getElementById("warning-count-all").textContent === "11");
+        await page.click('[data-warning-group="3"]');
+        const severeRows = await page.locator("#warnings-body tr").count();
+        const severeCount = Number(await page.locator("#warning-count-3").textContent());
+        await page.screenshot({ path: `${outputDir}/warnings-${viewport.name}-audit.png`, fullPage: true });
+        await page.click('[data-warning-group="2"]');
+        await page.fill("#warnings-search", "سارة");
+        await page.waitForFunction(() => document.querySelectorAll("#warnings-body tr").length === 1);
+        const filteredWarning = await page.locator("#warnings-body").textContent();
+        await page.locator("#warnings-body button").click();
+        await page.waitForSelector("#tab-student-detail:not([hidden])");
+        await page.click("#student-detail-back");
+        await page.waitForSelector("#tab-warnings:not([hidden])");
+        const warningsOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+        await page.evaluate(({ severeRows, severeCount, filteredWarning, warningsOverflow }) => {
+          window.__adminWarningsAudit = severeRows === severeCount && severeCount > 0 &&
+            filteredWarning.includes("سارة") && !warningsOverflow &&
+            document.querySelector('[data-tab="warnings"]').getAttribute("aria-selected") === "true";
+        }, { severeRows, severeCount, filteredWarning, warningsOverflow });
         await page.click('[data-tab="roster"]');
         await page.selectOption("#roster-sort", "points-desc");
         await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === window.__mockStudentCount);
@@ -311,6 +353,8 @@ async function installMock(page, admin) {
         adminMutunNameWorks: window.__adminMutunNameAudit !== false,
         studentAutoLoginWorks: window.__studentAutoLoginAudit !== false,
         studentHomeWorks: window.__studentHomeAudit !== false,
+        studentWarningsWork: window.__studentWarningsAudit !== false,
+        adminWarningsWork: window.__adminWarningsAudit !== false,
         recitationDefaultsWork: window.__recitationDefaultsAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
@@ -329,6 +373,7 @@ async function installMock(page, admin) {
     || !result.metrics.mutunNameWorks || !result.metrics.adminMutunNameWorks
     || !result.metrics.studentAutoLoginWorks
     || !result.metrics.studentHomeWorks
+    || !result.metrics.studentWarningsWork || !result.metrics.adminWarningsWork
     || !result.metrics.recitationDefaultsWork
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
     || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;

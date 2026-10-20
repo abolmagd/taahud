@@ -68,6 +68,12 @@
         <button type="button" class="student-nav-tab" data-student-view="account" role="tab" aria-selected="false" aria-controls="student-view-account">الحساب</button>
       </nav>
 
+      <section class="card student-warning" id="student-warning" role="status" aria-live="polite" hidden>
+        <strong id="student-warning-title"></strong>
+        <p id="student-warning-message"></p>
+        <p class="muted">يُضاف إنذار كل ٧ أيام بدون تسميع قرآن أو متن، كمُسمِّع أو سامع. تُصفّر الإنذارات عند العودة للتسميع.</p>
+      </section>
+
       <section class="student-view student-home" id="student-view-home" role="tabpanel">
         <div class="student-home-hero">
           <div class="student-home-intro">
@@ -104,8 +110,9 @@
               </svg>
             </span>
             <div>
-              <span class="student-home-label">ترتيبك بالنقاط</span>
+              <span class="student-home-label">ترتيبك بنقاط الشهر</span>
               <strong id="student-home-rank">جارٍ حساب الترتيب...</strong>
+              <p id="student-home-month-points"></p>
             </div>
           </div>
         </div>

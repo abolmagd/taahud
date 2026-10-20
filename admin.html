@@ -43,6 +43,7 @@
       <button class="tab active" data-tab="overview" role="tab" aria-selected="true">نظرة عامة</button>
       <button class="tab" data-tab="roster" role="tab" aria-selected="false">الطلاب</button>
       <button class="tab" data-tab="settings" role="tab" aria-selected="false">الإعدادات</button>
+      <button class="tab" data-tab="warnings" role="tab" aria-selected="false">الإنذارات</button>
       <button class="tab" data-tab="stats" role="tab" aria-selected="false">الإحصائيات</button>
       <button class="tab" data-tab="log" role="tab" aria-selected="false">السجلات</button>
     </nav>
@@ -236,6 +237,27 @@
         </table>
       </div>
       <div id="roster-toast" class="toast" role="status" aria-live="polite" hidden></div>
+    </section>
+
+    <section class="card" id="tab-warnings" hidden>
+      <div class="section-heading">
+        <div><h2>إنذارات عدم التسميع</h2><p class="muted">للطلاب أصحاب الحسابات النشطة · تتحدث تلقائيًا بتوقيت القاهرة</p></div>
+      </div>
+      <p class="field-help">٧ أيام: إنذار أول، ١٤ يومًا: إنذاران، ٢١ يومًا: ٣ إنذارات، ويُضاف إنذار لكل أسبوع إضافي. يبدأ الحساب من آخر تسميع قرآن أو متن، كمُسمِّع أو سامع، أو من تاريخ الانضمام للطالب الجديد. تُصفّر الإنذارات عند العودة للتسميع. القراءة ووِرد الاستماع لا يصفّرانها.</p>
+      <div class="warning-summary" id="warning-summary" aria-label="تقسيم الإنذارات">
+        <button type="button" class="warning-group active" data-warning-group="all" aria-pressed="true"><span>كل الطلاب النشطين</span><strong id="warning-count-all">—</strong></button>
+        <button type="button" class="warning-group" data-warning-group="0" aria-pressed="false"><span>بدون إنذارات</span><strong id="warning-count-0">—</strong></button>
+        <button type="button" class="warning-group" data-warning-group="1" aria-pressed="false"><span>إنذار أول</span><strong id="warning-count-1">—</strong></button>
+        <button type="button" class="warning-group" data-warning-group="2" aria-pressed="false"><span>إنذاران</span><strong id="warning-count-2">—</strong></button>
+        <button type="button" class="warning-group warning-group-severe" data-warning-group="3" aria-pressed="false"><span>٣ إنذارات فأكثر</span><strong id="warning-count-3">—</strong></button>
+      </div>
+      <div class="form-group"><label for="warnings-search">البحث بالكود أو الاسم</label><input type="search" id="warnings-search" autocomplete="off" /></div>
+      <p class="muted" id="warnings-summary" role="status" aria-live="polite"></p>
+      <div class="table-wrap"><table class="table" id="warnings-table">
+        <thead><tr><th>الكود</th><th>الاسم</th><th>الإنذارات</th><th>أيام عدم التسميع</th><th>آخر تسميع</th><th>الإنذار التالي</th><th>الإجراءات</th></tr></thead>
+        <tbody id="warnings-body"></tbody>
+      </table></div>
+      <div id="warnings-error" class="toast toast-error" role="alert" hidden>تعذّر تحميل الإنذارات. <button type="button" class="btn btn-secondary btn-compact" id="warnings-retry">إعادة المحاولة</button></div>
     </section>
 
     <section class="card" id="tab-student-detail" hidden>

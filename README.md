@@ -41,6 +41,14 @@ project, its own Vercel deployment.
    enable the student's private score rank on the home screen.
    Run `supabase-simplify-recitation-fields.sql` after that to store a neutral
    value for the removed Quran recitation questions while preserving older records.
+   Run `supabase-add-inactivity-warnings.sql` after that for automatic inactivity
+   warnings and the student's calendar-month score rank (Africa/Cairo).
+   Warnings add one per full 7 days without Quran/mutun recitation, as reciter
+   or student listener, starting from the last recitation or account creation.
+   Reading/listening-only records do not reset them. Resuming recitation clears
+   the current warnings. The admin warnings tab groups active accounts by
+   0, 1, 2, or 3+ warnings. Both views use the same database calculation, so no
+   scheduled job is required and session edits/deletions take effect immediately.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.

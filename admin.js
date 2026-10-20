@@ -10,6 +10,10 @@ window.TaahudAdmin = (function () {
   let liveRefreshTimer = null;
   let pollingTimer = null;
   let currentAtRiskStudents = [];
+  let currentWarnings = [];
+  let warningGroup = "all";
+  let warningsLoaded = false;
+  let detailReturnTab = "roster";
 
   function getClient() {
     if (!window._supabase) {
@@ -46,7 +50,7 @@ window.TaahudAdmin = (function () {
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-selected", String(active));
     });
-    ["overview", "roster", "settings", "stats", "log"].forEach((tab) => {
+    ["overview", "roster", "settings", "stats", "log", "warnings"].forEach((tab) => {
       document.getElementById("tab-" + tab).hidden = tab !== name;
     });
     document.getElementById("tab-student-detail").hidden = true;
@@ -528,6 +532,7 @@ window.TaahudAdmin = (function () {
       if (tab === "overview") await refreshOverview();
       if (tab === "roster") await refreshRoster();
       if (tab === "stats") await refreshStats();
+      if (tab === "warnings") await refreshWarnings();
       if (tab === "log") {
         await populateLogStudentFilter();
         await refreshLog();
@@ -1358,13 +1363,97 @@ window.TaahudAdmin = (function () {
     });
   }
 
+  function renderWarnings() {
+    if (!warningsLoaded) return;
+    const counts = { all: currentWarnings.length, 0: 0, 1: 0, 2: 0, 3: 0 };
+    currentWarnings.forEach((student) => { counts[Math.min(3, student.warningCount)] += 1; });
+    Object.entries(counts).forEach(([group, count]) => setText("warning-count-" + group, count));
+    document.querySelectorAll("[data-warning-group]").forEach((button) => {
+      const active = button.dataset.warningGroup === warningGroup;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const search = document.getElementById("warnings-search").value.trim().toLocaleLowerCase();
+    const filtered = currentWarnings.filter((student) =>
+      (warningGroup === "all" || String(Math.min(3, student.warningCount)) === warningGroup) &&
+      (!search || (student.code + " " + student.name).toLocaleLowerCase().includes(search))
+    );
+    setText("warnings-summary", filtered.length + " طالب · مرتّبون حسب عدد الإنذارات ثم مدة عدم التسميع");
+    const body = document.getElementById("warnings-body");
+    body.replaceChildren();
+    const labels = ["الكود", "الاسم", "الإنذارات", "أيام عدم التسميع", "آخر تسميع", "الإنذار التالي"];
+    filtered.forEach((student) => {
+      const row = document.createElement("tr");
+      const values = [student.code, student.name, student.warningCount || "بدون إنذارات",
+        student.inactiveDays + " يوم", student.lastActivityDate ? shortDate(student.lastActivityDate) : "لم يسجّل تسميعًا بعد",
+        shortDate(student.nextWarningDate)];
+      values.forEach((value, index) => {
+        const cell = document.createElement("td");
+        cell.dataset.label = labels[index];
+        cell.textContent = value;
+        if (index === 2) cell.className = student.warningCount >= 3 ? "warning-severe" : "";
+        row.appendChild(cell);
+      });
+      const action = document.createElement("td");
+      action.dataset.label = "الإجراءات";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn-secondary btn-compact";
+      button.textContent = "عرض الإحصائيات";
+      button.addEventListener("click", () => showStudentDetail(Object.assign({}, student, { id: student.studentId })));
+      action.appendChild(button);
+      row.appendChild(action);
+      body.appendChild(row);
+    });
+    if (!filtered.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 7;
+      cell.className = "empty-state empty-cell";
+      cell.textContent = "لا يوجد طلاب في هذا التقسيم";
+      row.appendChild(cell);
+      body.appendChild(row);
+    }
+  }
+
+  async function refreshWarnings() {
+    try {
+      const { data, error } = await state.client.rpc("admin_get_student_warnings");
+      if (error || !Array.isArray(data)) throw error || new Error("missing_warning_status");
+      currentWarnings = data;
+      warningsLoaded = true;
+      renderWarnings();
+      document.getElementById("warnings-error").hidden = true;
+    } catch (error) {
+      console.error("[Ta'ahud] Failed to load warnings", error);
+      currentWarnings = [];
+      warningsLoaded = false;
+      document.getElementById("warnings-body").replaceChildren();
+      setText("warnings-summary", "لم يتم تحديث بيانات الإنذارات");
+      ["all", "0", "1", "2", "3"].forEach((group) => setText("warning-count-" + group, "—"));
+      document.getElementById("warnings-error").hidden = false;
+    }
+  }
+
+  function wireWarnings() {
+    document.querySelectorAll("[data-warning-group]").forEach((button) => {
+      button.addEventListener("click", () => {
+        warningGroup = button.dataset.warningGroup;
+        renderWarnings();
+      });
+    });
+    document.getElementById("warnings-search").addEventListener("input", renderWarnings);
+    document.getElementById("warnings-retry").addEventListener("click", refreshWarnings);
+  }
+
   async function showStudentDetail(student) {
+    if (document.getElementById("tab-student-detail").hidden) detailReturnTab = activeTabName();
     currentDetailStudent = student;
-    ["overview", "roster", "settings", "stats", "log"].forEach((name) => {
+    ["overview", "roster", "settings", "stats", "log", "warnings"].forEach((name) => {
       document.getElementById("tab-" + name).hidden = true;
     });
     document.querySelectorAll(".tabs > .tab[data-tab]").forEach((button) => {
-      const active = button.dataset.tab === "roster";
+      const active = button.dataset.tab === detailReturnTab;
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
@@ -1385,8 +1474,7 @@ window.TaahudAdmin = (function () {
   function hideStudentDetail() {
     currentDetailStudent = null;
     document.getElementById("tab-student-detail").hidden = true;
-    document.getElementById("tab-roster").hidden = false;
-    document.getElementById("tab-roster").focus({ preventScroll: true });
+    switchTab(detailReturnTab);
   }
 
   function wireStudentDetail() {
@@ -1404,6 +1492,7 @@ window.TaahudAdmin = (function () {
     wireRosterTools();
     wireRosterSearch();
     wireStudentDetail();
+    wireWarnings();
     wireAtRiskDialog();
     wireSettings();
     wireStatsControls();

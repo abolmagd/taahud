@@ -299,19 +299,50 @@
   }
 
   async function refreshStudentRank() {
+    const token = state.accessToken;
     const rank = document.getElementById("student-home-rank");
     rank.textContent = "جارٍ حساب الترتيب...";
     try {
       const { data, error } = await state.client.rpc("get_student_score_rank", {
-        access_token: state.accessToken,
+        access_token: token,
       });
+      if (token !== state.accessToken) return;
       if (error) throw error;
+      document.getElementById("student-home-month-points").textContent = data
+        ? (Number(data.points) || 0) + " نقطة هذا الشهر"
+        : "";
       rank.textContent = data && data.rank && data.totalStudents
         ? "أنت رقم " + data.rank + " من " + data.totalStudents
         : "الترتيب غير متاح الآن";
     } catch (error) {
+      if (token !== state.accessToken) return;
       console.warn("[Ta'ahud] Failed to load student rank", error);
       rank.textContent = "الترتيب غير متاح الآن";
+      document.getElementById("student-home-month-points").textContent = "";
+    }
+  }
+
+  async function refreshStudentWarnings() {
+    const token = state.accessToken;
+    const warning = document.getElementById("student-warning");
+    try {
+      const { data, error } = await state.client.rpc("get_student_warnings", { access_token: token });
+      if (token !== state.accessToken) return;
+      if (error || !data) throw error || new Error("missing_warning_status");
+      const count = Number(data.warningCount) || 0;
+      warning.hidden = count === 0;
+      warning.classList.toggle("student-warning-severe", count >= 3);
+      document.getElementById("student-warning-title").textContent =
+        count === 1 ? "الإنذار الأول" : count === 2 ? "الإنذار الثاني" : count === 3 ? "الإنذار الثالث" : "لديك " + count + " إنذارات";
+      document.getElementById("student-warning-message").textContent =
+        "مرّ " + data.inactiveDays + " يومًا بدون تسميع. سجّل جلسة تسميع جديدة لاستعادة نشاطك.";
+    } catch (error) {
+      if (token !== state.accessToken) return;
+      console.warn("[Ta'ahud] Failed to load warnings", error);
+      warning.hidden = false;
+      warning.classList.remove("student-warning-severe");
+      document.getElementById("student-warning-title").textContent = "الإنذارات غير متاحة الآن";
+      document.getElementById("student-warning-message").textContent = "تعذّر تحديث حالة الإنذارات. أعد فتح الصفحة للمحاولة مرة أخرى.";
     }
   }
 
@@ -362,7 +393,10 @@
     ["home", "checkin", "stats", "records", "account"].forEach((view) => {
       document.getElementById("student-view-" + view).hidden = view !== name;
     });
-    if (name === "home") refreshStudentRank();
+    if (name === "home") {
+      refreshStudentRank();
+      refreshStudentWarnings();
+    }
   }
 
   function wireStudentNavigation() {
@@ -684,8 +718,9 @@
         syncListenerFields();
         if (profile) {
           renderDashboard(profile);
-          refreshStudentRank();
         }
+        refreshStudentRank();
+        refreshStudentWarnings();
         const details = "تاريخ " + formatShortDate(data.sessionDate) + " · " + data.pointsAwarded + " نقطة";
         document.getElementById("session-receipt-details").textContent = profileError
           ? details + " · تم الحفظ، وسيتم تحديث الإحصائيات عند إعادة فتح الصفحة"
@@ -714,6 +749,7 @@
       clearStoredStudentToken();
       state.student = null;
       state.sessions = [];
+      document.getElementById("student-warning").hidden = true;
       state.statsPeriod = "day";
       state.recordsPeriod = "day";
       syncPeriodFilter("student-stats-filter", state.statsPeriod);
@@ -800,6 +836,18 @@
     wireAccountPasswordChange();
     wireReceipt();
     wireInlineValidation();
+    setInterval(() => {
+      if (state.student && !document.hidden && !document.getElementById("student-dashboard").hidden) {
+        refreshStudentWarnings();
+        refreshStudentRank();
+      }
+    }, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && state.student && !document.getElementById("student-dashboard").hidden) {
+        refreshStudentWarnings();
+        refreshStudentRank();
+      }
+    });
 
     state.accessToken = readStoredStudentToken();
     if (state.accessToken) {
