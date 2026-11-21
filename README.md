@@ -49,6 +49,9 @@ project, its own Vercel deployment.
    the current warnings. The admin warnings tab groups active accounts by
    0, 1, 2, or 3+ warnings. Both views use the same database calculation, so no
    scheduled job is required and session edits/deletions take effect immediately.
+   Run `supabase-add-student-point-awards.sql` after that, before deploying the
+   frontend. It enables manual awards with a required reason in the admin
+   audit log and adds comparison scores to the student’s Cairo-month ranking.
 3. In Authentication → Users, add one user: email `admin@taahud.local`, password
    of your choice. This is the only login in the whole app — it's the admin
    account. Database policies verify this exact email before granting admin access.
@@ -110,6 +113,9 @@ Deploy the project root to Vercel as a static site (no build command needed).
       sessions end and the forced password-change screen appears next login.
 - [ ] Admin can reset one student's points or all points without deleting any
       session, and each action appears in `admin_audit_log` with its reason.
+- [ ] Admin can award points from the roster with a reason. The points appear
+      in the student’s monthly score and ranking. The warnings tab downloads
+      a PDF of students with warnings matching the current group and search.
 - [ ] Changing point rules recalculates all existing non-deleted sessions and
       preserves the daily streak requirement for each student.
 - [ ] Admin stats table shows correct totals for day/week/month and sorts on

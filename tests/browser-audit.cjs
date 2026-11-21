@@ -45,9 +45,11 @@ const sessions = [
 async function installMock(page, admin) {
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.fulfill({ contentType: "application/javascript", body: "" }));
   await page.addInitScript(({ mockStudents, mockSessions, isAdmin }) => {
+    const awards = [];
     function resultFor(table, single) {
       if (table === "students") return mockStudents;
       if (table === "sessions") return mockSessions;
+      if (table === "student_point_awards") return awards;
       if (table === "settings") {
         const rules = { value: { dailyCheckin: 5, reciterPage: 2, listenerPage: 1 } };
         return single ? rules : [rules];
@@ -88,7 +90,8 @@ async function installMock(page, admin) {
           return Promise.resolve({ data: mockStudents.slice(1).filter((student) => student.active).map(({ id, code }) => ({ id, code })), error: null });
         }
         if (name === "get_student_score_rank") {
-          return Promise.resolve({ data: { rank: 2, totalStudents: 11, points: 8.5, period: "month" }, error: null });
+          return Promise.resolve({ data: { rank: 4, totalStudents: 11, points: 8.5,
+            leaderPoints: 20, previousPoints: 12, period: "month" }, error: null });
         }
         if (name === "get_student_warnings") {
           const warningCount = window.__mockWarningCount ?? 2;
@@ -100,7 +103,12 @@ async function installMock(page, admin) {
             studentId: student.id, code: student.code, name: student.name,
             warningCount: [1, 2, 3, 4][index % 4], inactiveDays: [7, 14, 21, 28][index % 4],
             lastActivityDate: index % 2 ? null : "2026-10-07", nextWarningDate: "2026-10-28",
+            asOfDate: "2026-10-21",
           })), error: null });
+        }
+        if (name === "admin_award_student_points") {
+          awards.push({ student_id: args.target_student_id, points: args.award_points, awarded_on: "2026-10-21" });
+          return Promise.resolve({ data: { points: args.award_points }, error: null });
         }
         if (name === "record_student_session") {
           window.__mockWarningCount = 0;
@@ -166,13 +174,14 @@ async function installMock(page, admin) {
         await page.evaluate(() => {
           window.__studentHomeAudit = Boolean(
             !document.getElementById("student-view-home").hidden &&
-            document.getElementById("student-home-rank").textContent === "أنت رقم 2 من 11" &&
-            document.getElementById("student-home-month-points").textContent === "8.5 نقطة هذا الشهر" &&
+            document.getElementById("student-home-rank").textContent === "أنت رقم 4 من 11" &&
+            document.getElementById("student-home-leader-points").textContent === "المركز الأول · 20 نقطة" &&
+            document.getElementById("student-home-previous-points").textContent === "المركز الذي يسبقك · 12 نقطة" &&
             document.getElementById("student-view-home").textContent.includes("ترتيبك بنقاط الشهر") &&
-            document.getElementById("student-home-points").textContent === "23" &&
+            document.getElementById("student-home-points").textContent === "8.5" &&
             document.getElementById("student-home-streak").textContent === "0" &&
             document.querySelectorAll(".student-home-icon svg").length === 2 &&
-            document.querySelector(".student-home-score").textContent.includes("منذ بداية مشاركتك") &&
+            document.querySelector(".student-home-score").textContent.includes("نقاطك هذا الشهر") &&
             !document.getElementById("student-view-home").textContent.includes("بين الطلاب النشطين") &&
             !document.getElementById("student-view-home").textContent.includes("كل بيت")
           );
@@ -257,6 +266,14 @@ async function installMock(page, admin) {
         await page.fill("#warnings-search", "سارة");
         await page.waitForFunction(() => document.querySelectorAll("#warnings-body tr").length === 1);
         const filteredWarning = await page.locator("#warnings-body").textContent();
+        await page.evaluate(() => {
+          window.TaahudWarningsPdf.save = (headers, rows, asOfDate) => {
+            window.__warningsExportAudit = headers.length === 6 && rows.length === 1 &&
+              rows[0][1] === "سارة علي" && rows[0][2] === 2 && asOfDate === "2026-10-21";
+          };
+        });
+        await page.click("#export-warnings-pdf");
+        await page.waitForFunction(() => window.__warningsExportAudit !== undefined);
         await page.locator("#warnings-body button").click();
         await page.waitForSelector("#tab-student-detail:not([hidden])");
         await page.click("#student-detail-back");
@@ -270,6 +287,17 @@ async function installMock(page, admin) {
         await page.click('[data-tab="roster"]');
         await page.selectOption("#roster-sort", "points-desc");
         await page.waitForFunction(() => document.querySelectorAll("#roster-body tr").length === window.__mockStudentCount);
+        const awardRow = page.locator("#roster-body tr", { hasText: "أحمد محمد" });
+        await awardRow.getByRole("button", { name: "إضافة نقاط" }).click();
+        await page.fill("#point-award-amount", "1000");
+        await page.fill("#point-award-reason", "فائز في المسابقة");
+        await page.getByRole("button", { name: "حفظ النقاط" }).click();
+        await page.waitForFunction(() => document.querySelector("#roster-body").textContent.includes("1044"));
+        await page.evaluate(() => {
+          const award = window.__rpcCalls.find((call) => call.name === "admin_award_student_points").args;
+          window.__adminPointAwardAudit = award.target_student_id === "s1" && award.award_points === 1000 &&
+            award.change_reason === "فائز في المسابقة" && Boolean(award.request_id);
+        });
         page.on("dialog", async (dialog) => {
           if (dialog.type() === "prompt") {
             const message = dialog.message();
@@ -355,6 +383,8 @@ async function installMock(page, admin) {
         studentHomeWorks: window.__studentHomeAudit !== false,
         studentWarningsWork: window.__studentWarningsAudit !== false,
         adminWarningsWork: window.__adminWarningsAudit !== false,
+        warningsExportWorks: window.__warningsExportAudit !== false,
+        adminPointAwardWorks: window.__adminPointAwardAudit !== false,
         recitationDefaultsWork: window.__recitationDefaultsAudit !== false,
         adminPointResetActionsWork: window.__adminPointResetAudit !== false,
         historicalPointRulesWork: window.__historicalPointRulesAudit !== false,
@@ -374,6 +404,7 @@ async function installMock(page, admin) {
     || !result.metrics.studentAutoLoginWorks
     || !result.metrics.studentHomeWorks
     || !result.metrics.studentWarningsWork || !result.metrics.adminWarningsWork
+    || !result.metrics.warningsExportWorks || !result.metrics.adminPointAwardWorks
     || !result.metrics.recitationDefaultsWork
     || !result.metrics.adminPointResetActionsWork || !result.metrics.historicalPointRulesWork
     || !result.metrics.atRiskDialogWork || !result.metrics.allPasswordResetWork)) process.exitCode = 1;

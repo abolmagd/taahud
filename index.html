@@ -82,10 +82,9 @@
             <p class="muted">كل جلسة تقرّبك من هدفك. واصل وردك اليوم.</p>
             <button type="button" class="btn btn-primary" id="home-checkin-btn">سجّل جلسة جديدة</button>
           </div>
-          <div class="student-home-score" aria-label="مجموع نقاطك">
-            <span>نقاطك</span>
-            <strong id="student-home-points">0</strong>
-            <span>منذ بداية مشاركتك</span>
+          <div class="student-home-score" aria-live="polite">
+            <span>نقاطك هذا الشهر</span>
+            <strong id="student-home-points">—</strong>
           </div>
         </div>
         <div class="student-home-highlights" aria-live="polite">
@@ -112,7 +111,8 @@
             <div>
               <span class="student-home-label">ترتيبك بنقاط الشهر</span>
               <strong id="student-home-rank">جارٍ حساب الترتيب...</strong>
-              <p id="student-home-month-points"></p>
+              <p id="student-home-leader-points" hidden></p>
+              <p id="student-home-previous-points" hidden></p>
             </div>
           </div>
         </div>

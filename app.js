@@ -7,10 +7,12 @@
     student: null,
     students: [],
     sessions: [],
+    scoreRank: null,
     statsPeriod: "day",
     recordsPeriod: "day",
     pendingRequestId: null,
   };
+  let scoreRankRequest = 0;
   const STUDENT_TOKEN_KEY = "taahud_student_access_token";
 
   function storageGet(storage, key) {
@@ -270,7 +272,10 @@
 
     document.getElementById("student-stats-period-label").textContent =
       "إحصائيات " + periodLabels[state.statsPeriod];
-    document.getElementById("student-total-points").textContent = totals.totalPoints;
+    const score = state.statsPeriod === "month"
+      ? state.scoreRank?.points ?? totals.totalPoints
+      : totals.totalPoints + (Number(state.scoreRank?.awardPoints?.[state.statsPeriod]) || 0);
+    document.getElementById("student-total-points").textContent = score;
     document.getElementById("student-current-streak").textContent =
       window.TaahudStudentDashboard.currentStreak(state.sessions, cairoDate());
     document.getElementById("student-total-pages").textContent = totals.totalPages;
@@ -287,8 +292,6 @@
     state.sessions = profile.sessions || [];
 
     document.getElementById("student-dashboard-title").textContent = state.student.name;
-    document.getElementById("student-home-points").textContent =
-      window.TaahudStudentDashboard.aggregateStudentSessions(state.sessions).totalPoints;
     const streak = window.TaahudStudentDashboard.currentStreak(state.sessions, cairoDate());
     document.getElementById("student-home-streak").textContent = streak;
     document.getElementById("student-home-streak-hint").textContent = streak
@@ -300,25 +303,38 @@
 
   async function refreshStudentRank() {
     const token = state.accessToken;
+    const request = ++scoreRankRequest;
     const rank = document.getElementById("student-home-rank");
-    rank.textContent = "جارٍ حساب الترتيب...";
+    const points = document.getElementById("student-home-points");
+    const leader = document.getElementById("student-home-leader-points");
+    const previous = document.getElementById("student-home-previous-points");
+    if (!state.scoreRank) {
+      points.textContent = "—";
+      rank.textContent = "جارٍ حساب الترتيب...";
+      leader.hidden = previous.hidden = true;
+    }
     try {
       const { data, error } = await state.client.rpc("get_student_score_rank", {
         access_token: token,
       });
-      if (token !== state.accessToken) return;
-      if (error) throw error;
-      document.getElementById("student-home-month-points").textContent = data
-        ? (Number(data.points) || 0) + " نقطة هذا الشهر"
-        : "";
-      rank.textContent = data && data.rank && data.totalStudents
-        ? "أنت رقم " + data.rank + " من " + data.totalStudents
-        : "الترتيب غير متاح الآن";
+      if (token !== state.accessToken || request !== scoreRankRequest) return;
+      if (error || !data) throw error || new Error("missing_score_rank");
+      state.scoreRank = data;
+      points.textContent = data.points;
+      rank.textContent = "أنت رقم " + data.rank + " من " + data.totalStudents;
+      leader.hidden = data.leaderPoints == null;
+      leader.textContent = leader.hidden ? "" : "المركز الأول · " + data.leaderPoints + " نقطة";
+      previous.hidden = data.previousPoints == null;
+      previous.textContent = previous.hidden ? "" : "المركز الذي يسبقك · " + data.previousPoints + " نقطة";
+      renderStats();
     } catch (error) {
-      if (token !== state.accessToken) return;
+      if (token !== state.accessToken || request !== scoreRankRequest) return;
       console.warn("[Ta'ahud] Failed to load student rank", error);
+      state.scoreRank = null;
+      points.textContent = "—";
       rank.textContent = "الترتيب غير متاح الآن";
-      document.getElementById("student-home-month-points").textContent = "";
+      leader.hidden = previous.hidden = true;
+      renderStats();
     }
   }
 
@@ -749,6 +765,7 @@
       clearStoredStudentToken();
       state.student = null;
       state.sessions = [];
+      state.scoreRank = null;
       document.getElementById("student-warning").hidden = true;
       state.statsPeriod = "day";
       state.recordsPeriod = "day";

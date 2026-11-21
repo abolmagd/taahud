@@ -13,6 +13,8 @@ window.TaahudAdmin = (function () {
   let currentWarnings = [];
   let warningGroup = "all";
   let warningsLoaded = false;
+  let exportingWarnings = false;
+  let pendingPointAward = null;
   let detailReturnTab = "roster";
 
   function getClient() {
@@ -130,6 +132,13 @@ window.TaahudAdmin = (function () {
       detailBtn.textContent = "عرض الإحصائيات";
       detailBtn.addEventListener("click", () => showStudentDetail(student));
       actionCell.appendChild(detailBtn);
+
+      const awardBtn = document.createElement("button");
+      awardBtn.type = "button";
+      awardBtn.className = "btn btn-secondary btn-compact";
+      awardBtn.textContent = "إضافة نقاط";
+      awardBtn.addEventListener("click", () => showPointAwardDialog(student));
+      actionCell.appendChild(awardBtn);
 
       const toggleBtn = document.createElement("button");
       toggleBtn.className = "btn btn-secondary btn-compact";
@@ -265,10 +274,72 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshRoster() {
-    const [students, sessions] = await Promise.all([loadAllStudents(), loadSessionsForStats()]);
-    currentRoster = window.TaahudStats.enrichStudentRoster(students, sessions);
+    const [students, sessions, awards] = await Promise.all([
+      loadAllStudents(), loadSessionsForStats(), loadPointAwards(),
+    ]);
+    currentRoster = window.TaahudStats.enrichStudentRoster(students, sessions, awards);
     applyRosterFilter();
     return currentRoster;
+  }
+
+  function showPointAwardDialog(student) {
+    const form = document.getElementById("point-award-form");
+    form.reset();
+    form.dataset.studentId = student.id;
+    pendingPointAward = null;
+    setText("point-award-student", student.code + " — " + student.name);
+    document.getElementById("point-award-error").hidden = true;
+    document.getElementById("point-award-dialog").showModal();
+  }
+
+  function wirePointAwards() {
+    const dialog = document.getElementById("point-award-dialog");
+    const form = document.getElementById("point-award-form");
+    const submit = form.querySelector('[type="submit"]');
+    const cancel = document.getElementById("cancel-point-award");
+    const amount = document.getElementById("point-award-amount");
+    const reason = document.getElementById("point-award-reason");
+    const feedback = document.getElementById("point-award-error");
+    cancel.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("cancel", (event) => {
+      if (submit.disabled) event.preventDefault();
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (submit.disabled) return;
+      const points = amount.valueAsNumber;
+      const reasonText = reason.value.trim();
+      feedback.hidden = true;
+      if (!reasonText) {
+        feedback.textContent = "اكتب سبب إضافة النقاط.";
+        feedback.hidden = false;
+        reason.focus();
+        return;
+      }
+      for (const control of [submit, cancel, amount, reason]) control.disabled = true;
+      try {
+        if (pendingPointAward?.points !== points || pendingPointAward?.reason !== reasonText) {
+          const id = window.TaahudSessionSubmit.createRequestId(window.crypto);
+          pendingPointAward = { id, points, reason: reasonText };
+        }
+        const { data, error } = await state.client.rpc("admin_award_student_points", {
+          target_student_id: form.dataset.studentId,
+          award_points: points,
+          change_reason: reasonText,
+          request_id: pendingPointAward.id,
+        });
+        if (error) throw error;
+        dialog.close();
+        showToast("roster-toast", "تمت إضافة " + formatNumber(data.points) + " نقطة وتسجيل السبب.", "success");
+      } catch (error) {
+        console.error("[Ta'ahud] Failed to award points", error);
+        feedback.textContent = "تعذّر تأكيد إضافة النقاط. أعد المحاولة.";
+        feedback.hidden = false;
+      } finally {
+        for (const control of [submit, cancel, amount, reason]) control.disabled = false;
+      }
+      if (!dialog.open) await refreshRoster();
+    });
   }
 
   function wireLogin() {
@@ -289,6 +360,10 @@ window.TaahudAdmin = (function () {
     document.getElementById("logout-btn").addEventListener("click", async () => {
       stopAdminLiveUpdates();
       await state.client.auth.signOut();
+      currentWarnings = [];
+      warningsLoaded = false;
+      document.getElementById("warnings-body").replaceChildren();
+      document.getElementById("export-warnings-pdf").disabled = true;
       showLogin();
     });
   }
@@ -604,7 +679,7 @@ window.TaahudAdmin = (function () {
       const rules = getPointRulesFromForm();
       if (!window.confirm(
         "سيتم إعادة حساب نقاط كل الجلسات القديمة والجديدة بالقواعد الحالية. " +
-        "هذا سيستبدل أي تصفير أو تعديل يدوي سابق للنقاط. هل تريد الاستمرار؟"
+        "هذا سيستبدل أي تصفير أو تعديل سابق لنقاط الجلسات. هل تريد الاستمرار؟"
       )) return;
 
       const reasonInput = window.prompt("اكتب سبب تغيير قواعد النقاط (إلزامي):");
@@ -681,6 +756,27 @@ window.TaahudAdmin = (function () {
     }
   }
 
+  async function loadPointAwards() {
+    const pageSize = 1000;
+    const awards = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await state.client
+        .from("student_point_awards")
+        .select("student_id, points, awarded_on")
+        .is("voided_at", null)
+        .order("id")
+        .range(offset, offset + pageSize - 1);
+      if (error) {
+        console.error("[Ta'ahud] Failed to load point awards", error);
+        return [];
+      }
+      awards.push(...data.map((row) => ({
+        studentId: row.student_id, points: Number(row.points), date: row.awarded_on,
+      })));
+      if (data.length < pageSize) return awards;
+    }
+  }
+
   function renderStatsTable(rows) {
     const body = document.getElementById("stats-body");
     body.innerHTML = "";
@@ -712,17 +808,18 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshStats() {
-    const [students, sessions] = await Promise.all([
+    const [students, sessions, awards] = await Promise.all([
       loadAllStudents(),
       loadSessionsForStats(),
+      loadPointAwards(),
     ]);
     const now = cairoDate();
     const activeById = new Map(students.map((student) => [student.id, student.active]));
-    const aggregated = window.TaahudStats.aggregateStudentStats(students, sessions, statsPeriod, now)
+    const aggregated = window.TaahudStats.aggregateStudentStats(students, sessions, statsPeriod, now, null, awards)
       .map((row) => Object.assign(row, { active: activeById.get(row.studentId) !== false }));
     const sorted = window.TaahudStats.sortStats(aggregated, statsSortColumn, statsSortDirection);
     renderStatsTable(sorted);
-    renderStatsTotals(window.TaahudStats.aggregateTotals(sessions, statsPeriod, now));
+    renderStatsTotals(window.TaahudStats.aggregateTotals(sessions, statsPeriod, now, null, awards));
   }
 
   function wireStatsControls() {
@@ -828,16 +925,6 @@ window.TaahudAdmin = (function () {
 
   function sessionDisplayDate(session) {
     return session.sessionDate || session.createdAt;
-  }
-
-  function sameLocalDay(a, b) {
-    const first = new Date(a);
-    const second = new Date(b);
-    return (
-      first.getFullYear() === second.getFullYear() &&
-      first.getMonth() === second.getMonth() &&
-      first.getDate() === second.getDate()
-    );
   }
 
   function clearAndEmpty(container, message) {
@@ -978,7 +1065,7 @@ window.TaahudAdmin = (function () {
     });
   }
 
-  function renderDailyActivity(sessions, referenceDate) {
+  function renderDailyActivity(sessions, referenceDate, awards) {
     const container = document.getElementById("overview-daily-activity");
     container.innerHTML = "";
     container.setAttribute("role", "list");
@@ -987,14 +1074,17 @@ window.TaahudAdmin = (function () {
     const ref = new Date(referenceDate);
     for (let offset = 6; offset >= 0; offset -= 1) {
       const day = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - offset);
-      const daySessions = sessions.filter((session) => sameLocalDay(sessionDisplayDate(session), day));
+      const { start, end } = window.TaahudStats.periodBounds("day", day);
+      const daySessions = sessions.filter((session) => window.TaahudStats.sessionInRange(session, start, end));
+      const awardPoints = window.TaahudStats.pointAwardsInPeriod(awards, "day", day)
+        .reduce((sum, award) => sum + award.points, 0);
       days.push({
         date: day,
         sessions: daySessions.length,
         pages: daySessions.reduce((sum, session) => sum + (Number(session.pages) || 0), 0),
         points: daySessions.reduce(
           (sum, session) => sum + (Number(session.pointsAwarded) || 0) + (Number(session.listenerPointsAwarded) || 0),
-          0
+          awardPoints
         ),
       });
     }
@@ -1046,10 +1136,10 @@ window.TaahudAdmin = (function () {
   }
 
   async function refreshOverview() {
-    const [students, sessions] = await Promise.all([loadAllStudents(), loadSessionsForLog()]);
+    const [students, sessions, awards] = await Promise.all([loadAllStudents(), loadSessionsForLog(), loadPointAwards()]);
     const activeStudents = students.filter((student) => student.active);
     const now = cairoDate();
-    const todayTotals = window.TaahudStats.aggregateTotals(sessions, "day", now);
+    const todayTotals = window.TaahudStats.aggregateTotals(sessions, "day", now, null, awards);
     const weekTotals = window.TaahudStats.aggregateTotals(sessions, "week", now);
 
     setText("overview-today-sessions", todayTotals.totalSessions);
@@ -1113,8 +1203,8 @@ window.TaahudAdmin = (function () {
     moreButton.textContent = "إظهار المزيد (" + currentAtRiskStudents.length + ")";
     if (document.getElementById("at-risk-dialog").open) renderAtRiskDialog();
 
-    renderDailyActivity(sessions, now);
-    renderTopStudents(window.TaahudStats.topStudents(activeStudents, sessions, "month", now, 6));
+    renderDailyActivity(sessions, now, awards);
+    renderTopStudents(window.TaahudStats.topStudents(activeStudents, sessions, "month", now, 6, null, awards));
     renderRankedStudents(
       "overview-monthly-pages",
       window.TaahudStats.monthlyPageAchievers(students, sessions, now),
@@ -1363,6 +1453,21 @@ window.TaahudAdmin = (function () {
     });
   }
 
+  function filteredWarnings() {
+    const search = document.getElementById("warnings-search").value.trim().toLocaleLowerCase();
+    return currentWarnings.filter((student) =>
+      (warningGroup === "all" || String(Math.min(3, student.warningCount)) === warningGroup) &&
+      (!search || (student.code + " " + student.name).toLocaleLowerCase().includes(search))
+    );
+  }
+
+  function warningRowValues(student) {
+    return [student.code, student.name, student.warningCount || "بدون إنذارات",
+      student.inactiveDays + " يوم",
+      student.lastActivityDate ? shortDate(student.lastActivityDate + "T00:00:00") : "لم يسجّل تسميعًا بعد",
+      shortDate(student.nextWarningDate + "T00:00:00")];
+  }
+
   function renderWarnings() {
     if (!warningsLoaded) return;
     const counts = { all: currentWarnings.length, 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -1373,21 +1478,16 @@ window.TaahudAdmin = (function () {
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     });
-    const search = document.getElementById("warnings-search").value.trim().toLocaleLowerCase();
-    const filtered = currentWarnings.filter((student) =>
-      (warningGroup === "all" || String(Math.min(3, student.warningCount)) === warningGroup) &&
-      (!search || (student.code + " " + student.name).toLocaleLowerCase().includes(search))
-    );
+    const filtered = filteredWarnings();
+    document.getElementById("export-warnings-pdf").disabled =
+      exportingWarnings || !filtered.some((student) => student.warningCount > 0);
     setText("warnings-summary", filtered.length + " طالب · مرتّبون حسب عدد الإنذارات ثم مدة عدم التسميع");
     const body = document.getElementById("warnings-body");
     body.replaceChildren();
     const labels = ["الكود", "الاسم", "الإنذارات", "أيام عدم التسميع", "آخر تسميع", "الإنذار التالي"];
     filtered.forEach((student) => {
       const row = document.createElement("tr");
-      const values = [student.code, student.name, student.warningCount || "بدون إنذارات",
-        student.inactiveDays + " يوم", student.lastActivityDate ? shortDate(student.lastActivityDate) : "لم يسجّل تسميعًا بعد",
-        shortDate(student.nextWarningDate)];
-      values.forEach((value, index) => {
+      warningRowValues(student).forEach((value, index) => {
         const cell = document.createElement("td");
         cell.dataset.label = labels[index];
         cell.textContent = value;
@@ -1428,6 +1528,7 @@ window.TaahudAdmin = (function () {
       console.error("[Ta'ahud] Failed to load warnings", error);
       currentWarnings = [];
       warningsLoaded = false;
+      document.getElementById("export-warnings-pdf").disabled = true;
       document.getElementById("warnings-body").replaceChildren();
       setText("warnings-summary", "لم يتم تحديث بيانات الإنذارات");
       ["all", "0", "1", "2", "3"].forEach((group) => setText("warning-count-" + group, "—"));
@@ -1444,6 +1545,23 @@ window.TaahudAdmin = (function () {
     });
     document.getElementById("warnings-search").addEventListener("input", renderWarnings);
     document.getElementById("warnings-retry").addEventListener("click", refreshWarnings);
+    const exportButton = document.getElementById("export-warnings-pdf");
+    exportButton.addEventListener("click", async () => {
+      if (exportingWarnings || !warningsLoaded) return;
+      const students = filteredWarnings().filter((student) => student.warningCount > 0);
+      if (!students.length) return;
+      const headers = Array.from(document.querySelectorAll("#warnings-table th")).slice(0, -1).map((th) => th.textContent);
+      exportingWarnings = exportButton.disabled = true;
+      try {
+        await window.TaahudWarningsPdf.save(headers, students.map(warningRowValues), students[0].asOfDate);
+      } catch (error) {
+        console.error("[Ta'ahud] Failed to export warnings", error);
+        showToast("warnings-export-toast", "تعذّر تصدير ملف PDF. أعد المحاولة.", "error");
+      } finally {
+        exportingWarnings = false;
+        exportButton.disabled = !warningsLoaded || !filteredWarnings().some((student) => student.warningCount > 0);
+      }
+    });
   }
 
   async function showStudentDetail(student) {
@@ -1460,8 +1578,8 @@ window.TaahudAdmin = (function () {
     document.getElementById("tab-student-detail").hidden = false;
     document.getElementById("student-detail-title").textContent = student.code + " — " + student.name;
 
-    const sessions = await loadSessionsForLog();
-    const stats = window.TaahudStats.aggregateStudentStats([student], sessions, "all", cairoDate())[0];
+    const [sessions, awards] = await Promise.all([loadSessionsForLog(), loadPointAwards()]);
+    const stats = window.TaahudStats.aggregateStudentStats([student], sessions, "all", cairoDate(), null, awards)[0];
     document.getElementById("student-detail-sessions-recited").textContent = stats.sessionsRecited;
     document.getElementById("student-detail-pages-recited").textContent = stats.pagesRecited;
     document.getElementById("student-detail-sessions-listened").textContent = stats.sessionsListened;
@@ -1491,6 +1609,7 @@ window.TaahudAdmin = (function () {
     wireAddStudent();
     wireRosterTools();
     wireRosterSearch();
+    wirePointAwards();
     wireStudentDetail();
     wireWarnings();
     wireAtRiskDialog();

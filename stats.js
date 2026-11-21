@@ -43,14 +43,23 @@
     throw new Error("Unknown period: " + period);
   }
 
+  function dateInRange(value, start, end) {
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + "T00:00:00" : value);
+    return date >= start && date < end;
+  }
+
   function sessionInRange(session, start, end) {
-    const effectiveDate = new Date(sessionEffectiveDate(session));
-    return effectiveDate >= start && effectiveDate < end;
+    return dateInRange(sessionEffectiveDate(session), start, end);
   }
 
   function sessionsInPeriod(sessions, period, referenceDate) {
     const { start, end } = periodBounds(period, referenceDate);
     return sessions.filter((s) => sessionInRange(s, start, end));
+  }
+
+  function pointAwardsInPeriod(awards, period, referenceDate) {
+    const { start, end } = periodBounds(period, referenceDate);
+    return awards.filter(({ date }) => dateInRange(date, start, end));
   }
 
   function normalizePointRules(pointRules) {
@@ -154,9 +163,13 @@
     return effective.pointsAwarded + effective.listenerPointsAwarded;
   }
 
-  function aggregateStudentStats(students, sessions, period, referenceDate, pointRules) {
+  function aggregateStudentStats(students, sessions, period, referenceDate, pointRules, awards = []) {
     const inRange = sessionsInPeriod(sessions, period, referenceDate);
     const effectiveSessions = withEffectivePoints(inRange, pointRules);
+    const awardTotals = new Map();
+    for (const { studentId, points } of pointAwardsInPeriod(awards, period, referenceDate)) {
+      awardTotals.set(studentId, (awardTotals.get(studentId) || 0) + points);
+    }
 
     return students.map((student) => {
       const recited = effectiveSessions.filter(({ session }) => session.studentId === student.id);
@@ -173,12 +186,13 @@
         sessionsListened: listened.length,
         pointsEarned:
           recited.reduce((sum, item) => sum + item.pointsAwarded, 0) +
-          listened.reduce((sum, item) => sum + item.listenerPointsAwarded, 0),
+          listened.reduce((sum, item) => sum + item.listenerPointsAwarded, 0) +
+          (awardTotals.get(student.id) || 0),
       };
     });
   }
 
-  function aggregateTotals(sessions, period, referenceDate, pointRules) {
+  function aggregateTotals(sessions, period, referenceDate, pointRules, awards = []) {
     const inRange = sessionsInPeriod(sessions, period, referenceDate);
     const effectiveSessions = withEffectivePoints(inRange, pointRules);
 
@@ -206,11 +220,13 @@
       : (pageValues[middle - 1] + pageValues[middle]) / 2;
     const totalReciterPoints = effectiveSessions.reduce((sum, item) => sum + item.pointsAwarded, 0);
     const totalListenerPoints = effectiveSessions.reduce((sum, item) => sum + item.listenerPointsAwarded, 0);
+    const totalAwardPoints = pointAwardsInPeriod(awards, period, referenceDate)
+      .reduce((sum, award) => sum + award.points, 0);
 
     return {
       totalSessions: inRange.length,
       totalPages,
-      totalPoints: totalReciterPoints + totalListenerPoints,
+      totalPoints: totalReciterPoints + totalListenerPoints + totalAwardPoints,
       totalReciterPoints,
       totalListenerPoints,
       averagePages: inRange.length ? totalPages / inRange.length : 0,
@@ -238,8 +254,8 @@
     return Array.from(groups.values()).sort((a, b) => b.sessions - a.sessions || b.pages - a.pages);
   }
 
-  function topStudents(students, sessions, period, referenceDate, limit, pointRules) {
-    return sortStats(aggregateStudentStats(students, sessions, period, referenceDate, pointRules), "pointsEarned", "desc")
+  function topStudents(students, sessions, period, referenceDate, limit, pointRules, awards = []) {
+    return sortStats(aggregateStudentStats(students, sessions, period, referenceDate, pointRules, awards), "pointsEarned", "desc")
       .filter((student) => student.sessionsRecited || student.sessionsListened || student.pointsEarned)
       .slice(0, limit || 5);
   }
@@ -307,7 +323,7 @@
       .sort((a, b) => b.streak - a.streak || compareStudentCodes(a, b));
   }
 
-  function enrichStudentRoster(students, sessions) {
+  function enrichStudentRoster(students, sessions, awards = []) {
     const activity = new Map((students || []).map((student) => [student.id, { totalPoints: 0, lastActivity: null }]));
     (sessions || []).forEach((session) => {
       const timestamp = new Date(session.createdAt || session.sessionDate || 0).getTime();
@@ -324,6 +340,10 @@
         update(session.listenerStudentId, session.listenerPointsAwarded);
       }
     });
+    for (const { studentId, points } of awards) {
+      const student = activity.get(studentId);
+      if (student) student.totalPoints += points;
+    }
     return (students || []).map((student) => {
       const values = activity.get(student.id) || { totalPoints: 0, lastActivity: null };
       return Object.assign({}, student, values);
@@ -373,6 +393,7 @@
   return {
     periodBounds,
     sessionInRange,
+    pointAwardsInPeriod,
     sessionsInPeriod,
     sessionEffectiveDate,
     withEffectivePoints,

@@ -13,11 +13,18 @@ test("database warnings and monthly rank use shared activity, dates, and private
   t.after(() => db.close());
   await db.exec(`
     create role anon; create role authenticated;
+    create schema auth;
+    create function auth.uid() returns uuid language sql stable
+      as $$ select '00000000-0000-0000-0000-000000000999'::uuid $$;
     create table students (id uuid primary key, code text, name text, active boolean, created_at timestamptz);
     create table sessions (id serial primary key, student_id uuid, listener_student_id uuid,
       listener_type text default 'outside', session_kind text default 'recitation',
       session_date date, points_awarded numeric default 0, listener_points_awarded numeric default 0,
-      deleted_at timestamptz);
+      deleted_at timestamptz, updated_at timestamptz, updated_by uuid);
+    create table admin_audit_log (
+      id uuid primary key default gen_random_uuid(), admin_id uuid, action text,
+      entity_type text, entity_id uuid, old_data jsonb, new_data jsonb, reason text
+    );
     create function taahud_current_local_date() returns date language sql stable
       as $$ select coalesce(nullif(current_setting('test.today', true), ''), '2026-10-21')::date $$;
     create function taahud_is_admin() returns boolean language sql stable
@@ -121,5 +128,65 @@ test("database warnings and monthly rank use shared activity, dates, and private
     await db.exec("reset role; set role authenticated");
     await assert.rejects(() => db.query("select admin_get_student_warnings()"), /admin_required/);
     await db.exec("reset role");
+  });
+
+  await t.test("manual awards are authorized, idempotent, audited, and ranked by Cairo month", async () => {
+    const awardsMigration = fs.readFileSync(path.join(__dirname, "../supabase-add-student-point-awards.sql"), "utf8");
+    await db.exec(awardsMigration);
+    await db.exec(awardsMigration);
+    const award = async (student, points, reason, request) => (await db.query(
+      "select admin_award_student_points($1,$2,$3,$4) as data", [id(student), points, reason, id(request)]
+    )).rows[0].data;
+    await db.exec("set role anon");
+    await assert.rejects(() => award(1, 1, "مسابقة", 100), /permission denied/);
+    await assert.rejects(() => db.query("select * from student_point_awards"), /permission denied/);
+    await db.exec("reset role; set role authenticated; set test.admin = 'false'");
+    await assert.rejects(() => award(1, 1, "مسابقة", 100), /admin_required/);
+    assert.equal((await db.query("select * from student_point_awards")).rows.length, 0);
+
+    await db.exec("set test.admin = 'true'");
+    await assert.rejects(() => award(1, 0, "مسابقة", 100), /invalid_award_points/);
+    await assert.rejects(() => award(1, 0.25, "مسابقة", 100), /invalid_award_points/);
+    await assert.rejects(() => award(1, 1, " \t\n ", 100), /reason_required/);
+    await assert.rejects(() => award(99, 1, "مسابقة", 100), /student_not_found/);
+    assert.deepEqual(await award(1, 4.5, "  فائز في المسابقة  ", 100), { points: 4.5, awardedOn: "2026-10-21" });
+    assert.deepEqual(await award(1, 4.5, "فائز في المسابقة", 100), { points: 4.5, awardedOn: "2026-10-21" });
+    await assert.rejects(() => award(1, 6, "مسابقة أخرى", 100), /award_request_conflict/);
+    await assert.rejects(() => db.query("update student_point_awards set points = 2000"), /permission denied/);
+    await db.exec("reset role");
+
+    const log = (await db.query("select * from admin_audit_log where action = 'award_points'")).rows;
+    assert.equal(log.length, 1);
+    assert.equal(log[0].entity_id, id(1));
+    assert.equal(log[0].reason, "فائز في المسابقة");
+    assert.equal(log[0].admin_id, id(999));
+    assert.equal(log[0].new_data.points, 4.5);
+    assert.equal((await warn("1")).warningCount, 0);
+
+    await db.exec("set role anon");
+    assert.deepEqual(await rank("1"), {
+      rank: 3, totalStudents: 8, points: 8, leaderPoints: 10, previousPoints: 10,
+      period: "month", monthStart: "2026-10-01", awardPoints: { day: 4.5, week: 4.5, all: 4.5 },
+    });
+    assert.equal((await rank("2")).previousPoints, null);
+    assert.equal((await rank("3")).previousPoints, null);
+    assert.equal((await rank("4")).previousPoints, 8);
+    await db.exec("reset role; set test.today = '2026-11-01'");
+    assert.equal((await rank("1")).points, 0);
+    assert.equal((await rank("1")).awardPoints.all, 4.5);
+    assert.equal((await rank("1")).awardPoints.week, 0);
+
+    await db.exec("set role authenticated");
+    await award(4, 2, "مسابقة", 101);
+    assert.equal((await rank("4")).points, 502);
+    const one = (await db.query("select admin_reset_student_points($1,'اختبار') as data", [id(4)])).rows[0].data;
+    assert.equal(one.removedPoints, 502);
+    assert.equal((await rank("4")).points, 0);
+    await award(4, 2, "مسابقة", 101);
+    assert.equal((await rank("4")).points, 0);
+    await db.query("select admin_reset_all_points('اختبار')");
+    assert.equal((await rank("1")).awardPoints.all, 0);
+    await db.exec("reset role");
+    assert.equal((await db.query("select count(*)::integer as count from admin_audit_log where action = 'award_points'")).rows[0].count, 2);
   });
 });

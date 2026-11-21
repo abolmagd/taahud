@@ -242,6 +242,7 @@
     <section class="card" id="tab-warnings" hidden>
       <div class="section-heading">
         <div><h2>إنذارات عدم التسميع</h2><p class="muted">للطلاب أصحاب الحسابات النشطة · تتحدث تلقائيًا بتوقيت القاهرة</p></div>
+        <button type="button" class="btn btn-secondary" id="export-warnings-pdf" disabled>تصدير الإنذارات PDF</button>
       </div>
       <p class="field-help">٧ أيام: إنذار أول، ١٤ يومًا: إنذاران، ٢١ يومًا: ٣ إنذارات، ويُضاف إنذار لكل أسبوع إضافي. يبدأ الحساب من آخر تسميع قرآن أو متن، كمُسمِّع أو سامع، أو من تاريخ الانضمام للطالب الجديد. تُصفّر الإنذارات عند العودة للتسميع. القراءة ووِرد الاستماع لا يصفّرانها.</p>
       <div class="warning-summary" id="warning-summary" aria-label="تقسيم الإنذارات">
@@ -258,6 +259,7 @@
         <tbody id="warnings-body"></tbody>
       </table></div>
       <div id="warnings-error" class="toast toast-error" role="alert" hidden>تعذّر تحميل الإنذارات. <button type="button" class="btn btn-secondary btn-compact" id="warnings-retry">إعادة المحاولة</button></div>
+      <div id="warnings-export-toast" class="toast" role="status" hidden></div>
     </section>
 
     <section class="card" id="tab-student-detail" hidden>
@@ -467,6 +469,26 @@
     <div class="dialog-actions"><button type="button" class="btn btn-primary" id="export-credentials-btn">تصدير CSV</button><button type="button" class="btn btn-secondary" id="close-credentials-btn">إغلاق</button></div>
   </dialog>
 
+  <dialog id="point-award-dialog" class="app-dialog" aria-labelledby="point-award-title">
+    <h2 id="point-award-title">إضافة نقاط</h2>
+    <p class="muted" id="point-award-student"></p>
+    <form id="point-award-form" class="dialog-form">
+      <div class="form-group form-group-wide">
+        <label for="point-award-amount">عدد النقاط</label>
+        <input type="number" id="point-award-amount" min="0.5" max="1000000000" step="0.5" required />
+      </div>
+      <div class="form-group form-group-wide">
+        <label for="point-award-reason">سبب الإضافة</label>
+        <textarea id="point-award-reason" rows="3" maxlength="500" required></textarea>
+      </div>
+      <p id="point-award-error" class="form-group-wide toast toast-error" role="alert" hidden></p>
+      <div class="dialog-actions form-group-wide">
+        <button type="submit" class="btn btn-primary">حفظ النقاط</button>
+        <button type="button" class="btn btn-secondary" id="cancel-point-award">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="session-edit-dialog" class="app-dialog" aria-labelledby="session-edit-title">
     <h2 id="session-edit-title">تعديل الجلسة</h2>
     <form id="session-edit-form" class="dialog-form">
@@ -491,6 +513,8 @@
   <script src="points.js" defer></script>
   <script src="stats.js" defer></script>
   <script src="session-log.js" defer></script>
+  <script src="session-submit.js" defer></script>
+  <script src="warnings-pdf.js" defer></script>
   <script src="admin.js" defer></script>
 </body>
 </html>

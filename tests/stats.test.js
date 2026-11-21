@@ -26,6 +26,24 @@ test("withEffectivePoints keeps mutun verse scoring when page rules change", () 
   assert.equal(withEffectivePoints(sessions, { dailyCheckin: 5, reciterPage: 8, listenerPage: 1 })[0].pointsAwarded, 6.5);
 });
 
+test("manual awards count toward points without counting toward activity", () => {
+  const students = [{ id: "s1", code: "1", name: "أحمد" }];
+  const awards = [
+    { studentId: "s1", date: "2026-10-31", points: 1000 },
+    { studentId: "s1", date: "2026-11-01", points: 5.5 },
+  ];
+  const november = new Date(2026, 10, 1);
+  const [row] = aggregateStudentStats(students, [], "month", november, null, awards);
+  assert.equal(row.pointsEarned, 5.5);
+  assert.equal(row.sessionsRecited, 0);
+  assert.equal(topStudents(students, [], "month", november, 1, null, awards)[0].pointsEarned, 5.5);
+  const overview = aggregateTotals([], "day", november, null, awards);
+  assert.equal(overview.totalPoints, 5.5);
+  assert.equal(overview.activeStudents, 0);
+  assert.equal(enrichStudentRoster(students, [], awards)[0].lastActivity, null);
+  assert.equal(enrichStudentRoster(students, [], awards)[0].totalPoints, 1005.5);
+});
+
 // ─── periodBounds ───
 
 test("periodBounds: day returns midnight-to-midnight for the reference date", () => {
